@@ -41,9 +41,59 @@ QUESTIONS = [
         "answer": "f1 score",
         "aliases": ["f1", "precision recall", "auc pr"],
     },
+    {
+        "question": "What type of neural network layer connects every neuron to every neuron in the next layer?",
+        "answer": "fully connected",
+        "aliases": ["dense layer", "dense", "fully connected layer"],
+    },
+    {
+        "question": "Which technique randomly drops neurons during training to reduce overfitting?",
+        "answer": "dropout",
+    },
+    {
+        "question": "What is the name of the process of adjusting model weights using the chain rule of calculus?",
+        "answer": "backpropagation",
+        "aliases": ["back propagation", "backprop"],
+    },
+    {
+        "question": "Which unsupervised learning algorithm groups data points into k clusters?",
+        "answer": "k means",
+        "aliases": ["k-means", "k means clustering", "k-means clustering"],
+    },
+    {
+        "question": "What do you call the set of hyperparameter values that minimizes validation loss?",
+        "answer": "optimal hyperparameters",
+        "aliases": ["best hyperparameters", "hyperparameter tuning", "tuned hyperparameters"],
+    },
+    {
+        "question": "Which algorithm builds an ensemble of decision trees using random feature subsets?",
+        "answer": "random forest",
+    },
+    {
+        "question": "What term describes the error due to overly simple assumptions in a learning algorithm?",
+        "answer": "bias",
+        "aliases": ["high bias", "underfitting bias"],
+    },
+    {
+        "question": "Which activation function outputs values strictly between 0 and 1 and is used in output layers for binary classification?",
+        "answer": "sigmoid",
+        "aliases": ["sigmoid function"],
+    },
+    {
+        "question": "What is the name of the optimization algorithm that adapts learning rates for each parameter?",
+        "answer": "adam",
+        "aliases": ["adam optimizer"],
+    },
+    {
+        "question": "Which dimensionality reduction technique projects data onto directions of maximum variance?",
+        "answer": "pca",
+        "aliases": ["principal component analysis"],
+    },
 ]
 
-WIN_POINTS = 10
+TOTAL_ROUNDS = 10
+POINTS_PER_ROUND = 1          # awarded to round winner immediately
+DISCONNECT_BONUS = 3          # extra points given to remaining player on disconnect
 
 
 class Matchmaker:
@@ -55,26 +105,87 @@ class Matchmaker:
     def _normalize(self, text: str) -> str:
         return " ".join(text.lower().strip().split())
 
-    def _new_question(self) -> Dict[str, str]:
-        return random.choice(QUESTIONS)
+    def _pick_questions(self) -> list:
+        pool = QUESTIONS.copy()
+        random.shuffle(pool)
+        return pool[:TOTAL_ROUNDS]
 
     def _is_correct(self, room: Dict, answer: str) -> bool:
-        expected = room["question"]
+        expected = room["current_question"]
         normalized = self._normalize(answer)
         valid_answers = [self._normalize(expected["answer"])]
         for alias in expected.get("aliases", []):
             valid_answers.append(self._normalize(alias))
         return normalized in valid_answers
 
-    def _award_points(self, user_id: int) -> None:
+    def _award_points(self, user_id: int, amount: int) -> None:
         user = User.query.get(user_id)
         if not user:
             return
         try:
-            user.points += WIN_POINTS
+            user.points += amount
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+    def _scores_payload(self, room: Dict) -> Dict:
+        return {p["username"]: room["scores"][p["sid"]] for p in room["players"]}
+
+    def _advance_round(self, room: Dict) -> None:
+        """Move to the next round or end the match if all rounds are done."""
+        room["round"] += 1
+        room["round_winner_sid"] = None
+
+        if room["round"] > TOTAL_ROUNDS:
+            self._finish_match(room, reason="all_rounds_complete")
+            return
+
+        room["current_question"] = room["questions"][room["round"] - 1]
+        emit(
+            "next_round",
+            {
+                "round": room["round"],
+                "total_rounds": TOTAL_ROUNDS,
+                "question": room["current_question"]["question"],
+                "scores": self._scores_payload(room),
+            },
+            to=room["id"],
+        )
+
+    def _finish_match(self, room: Dict, reason: str) -> None:
+        room["active"] = False
+        scores = room["scores"]
+        players = room["players"]
+
+        score_a = scores[players[0]["sid"]]
+        score_b = scores[players[1]["sid"]]
+
+        if score_a > score_b:
+            overall_winner = players[0]
+            overall_loser = players[1]
+        elif score_b > score_a:
+            overall_winner = players[1]
+            overall_loser = players[0]
+        else:
+            overall_winner = None  # draw
+
+        # Persist points equal to rounds won
+        for player in players:
+            pts = scores[player["sid"]]
+            if pts > 0:
+                self._award_points(player["user_id"], pts)
+
+        emit(
+            "match_ended",
+            {
+                "reason": reason,
+                "scores": self._scores_payload(room),
+                "winner": overall_winner["username"] if overall_winner else None,
+                "draw": overall_winner is None,
+            },
+            to=room["id"],
+        )
+        self.rooms.pop(room["id"], None)
 
     def join_queue(self, sid: str, user_id: int, username: str) -> None:
         with self._lock:
@@ -104,12 +215,15 @@ class Matchmaker:
             self.waiting_player = None
 
             room_id = f"playground-{uuid4().hex}"
-            question = self._new_question()
+            questions = self._pick_questions()
             room_state = {
                 "id": room_id,
                 "players": [player_one, player_two],
-                "question": question,
-                "winner_sid": None,
+                "questions": questions,
+                "current_question": questions[0],
+                "round": 1,
+                "round_winner_sid": None,
+                "scores": {player_one["sid"]: 0, player_two["sid"]: 0},
                 "active": True,
             }
             self.rooms[room_id] = room_state
@@ -121,9 +235,11 @@ class Matchmaker:
                 "match_found",
                 {
                     "room_id": room_id,
-                    "question": question["question"],
+                    "round": 1,
+                    "total_rounds": TOTAL_ROUNDS,
+                    "question": questions[0]["question"],
                     "players": [player_one["username"], player_two["username"]],
-                    "points_to_win": WIN_POINTS,
+                    "scores": {player_one["username"]: 0, player_two["username"]: 0},
                 },
                 to=room_id,
             )
@@ -144,26 +260,27 @@ class Matchmaker:
                 emit("answer_result", {"correct": False, "message": "Answer cannot be empty."})
                 return
 
-            if room["winner_sid"] is not None:
-                emit("answer_result", {"correct": False, "message": "A winner has already been declared."})
+            if room["round_winner_sid"] is not None:
+                emit("answer_result", {"correct": False, "message": "Round already won. Next question incoming."})
                 return
 
             if self._is_correct(room, cleaned_answer):
-                room["winner_sid"] = sid
-                room["active"] = False
-                winner = next(player for player in room["players"] if player["sid"] == sid)
-                self._award_points(winner["user_id"])
+                room["round_winner_sid"] = sid
+                room["scores"][sid] += POINTS_PER_ROUND
+                winner = next(p for p in room["players"] if p["sid"] == sid)
+
                 emit(
-                    "match_ended",
+                    "round_ended",
                     {
-                        "winner": winner["username"],
-                        "reason": "correct_answer",
-                        "points_awarded": WIN_POINTS,
+                        "round": room["round"],
+                        "round_winner": winner["username"],
+                        "correct_answer": room["current_question"]["answer"],
+                        "scores": self._scores_payload(room),
                     },
                     to=room["id"],
                 )
-                room_id = room["id"]
-                self.rooms.pop(room_id, None)
+
+                self._advance_round(room)
                 return
 
             emit("answer_result", {"correct": False, "message": "Incorrect answer. Try again."}, to=sid)
@@ -179,19 +296,27 @@ class Matchmaker:
                 return
 
             room["active"] = False
-            loser = next(player for player in room["players"] if player["sid"] == sid)
-            winner = next(player for player in room["players"] if player["sid"] != sid)
-            room["winner_sid"] = winner["sid"]
-            self._award_points(winner["user_id"])
-            leave_room(room["id"], sid=loser["sid"])
+            leaver = next(p for p in room["players"] if p["sid"] == sid)
+            remaining = next(p for p in room["players"] if p["sid"] != sid)
+
+            # Give the remaining player a disconnect bonus on top of their current score
+            self._award_points(remaining["user_id"], room["scores"][remaining["sid"]] + DISCONNECT_BONUS)
+            # Still persist whatever the leaver had earned
+            earned = room["scores"][leaver["sid"]]
+            if earned > 0:
+                self._award_points(leaver["user_id"], earned)
+
+            leave_room(room["id"], sid=leaver["sid"])
             emit(
                 "match_ended",
                 {
-                    "winner": winner["username"],
                     "reason": "opponent_disconnected",
-                    "points_awarded": WIN_POINTS,
+                    "scores": self._scores_payload(room),
+                    "winner": remaining["username"],
+                    "draw": False,
+                    "disconnect_bonus": DISCONNECT_BONUS,
                 },
-                to=winner["sid"],
+                to=remaining["sid"],
             )
             self.rooms.pop(room["id"], None)
 

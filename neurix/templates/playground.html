@@ -4,7 +4,7 @@
 
   <div class="content-section">
     <h3>Machine Learning Playground</h3>
-    <p class="text-muted mb-2">Join a 1v1 ML quiz match. The first correct answer wins.</p>
+    <p class="text-muted mb-2">Join a 1v1 ML quiz match — 10 rounds, first correct answer each round wins the point.</p>
 
     <button id="join-playground" class="btn btn-outline-info btn-sm" {% if not current_user.is_authenticated %}disabled{% endif %}>
       Join Matchmaking
@@ -15,6 +15,14 @@
     {% endif %}
 
     <div id="playground-state" class="mt-3">Idle.</div>
+
+    <!-- Scoreboard (hidden until match starts) -->
+    <div id="scoreboard" class="mt-3" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between">
+        <span id="round-indicator" class="badge badge-secondary"></span>
+        <div id="score-display" class="font-weight-bold"></div>
+      </div>
+    </div>
 
     <div id="question-wrapper" class="mt-3" style="display: none;">
       <p class="mb-2"><strong>Question:</strong> <span id="question-text"></span></p>
@@ -31,75 +39,122 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
     (function () {
-      const joinButton = document.getElementById('join-playground');
-      const submitButton = document.getElementById('submit-answer');
-      const answerInput = document.getElementById('answer-input');
-      const stateBox = document.getElementById('playground-state');
-      const questionWrapper = document.getElementById('question-wrapper');
-      const questionText = document.getElementById('question-text');
-      const answerFeedback = document.getElementById('answer-feedback');
+      const joinButton       = document.getElementById('join-playground');
+      const submitButton     = document.getElementById('submit-answer');
+      const answerInput      = document.getElementById('answer-input');
+      const stateBox         = document.getElementById('playground-state');
+      const questionWrapper  = document.getElementById('question-wrapper');
+      const questionText     = document.getElementById('question-text');
+      const answerFeedback   = document.getElementById('answer-feedback');
+      const scoreboard       = document.getElementById('scoreboard');
+      const roundIndicator   = document.getElementById('round-indicator');
+      const scoreDisplay     = document.getElementById('score-display');
 
-      if (!joinButton) {
-        return;
-      }
+      if (!joinButton) return;
 
       const socket = io();
       let inMatch = false;
+      let players = [];         // [username1, username2]
+      let totalRounds = 10;
 
-      const setState = (msg) => {
-        stateBox.textContent = msg;
+      const setState = (msg) => { stateBox.textContent = msg; };
+
+      const updateScoreboard = (round, scores) => {
+        roundIndicator.textContent = `Round ${round} / ${totalRounds}`;
+        if (players.length === 2) {
+          scoreDisplay.textContent =
+            `${players[0]}: ${scores[players[0]] ?? 0}  —  ${players[1]}: ${scores[players[1]] ?? 0}`;
+        }
       };
 
+      const showQuestion = (questionStr) => {
+        questionWrapper.style.display = 'block';
+        questionText.textContent = questionStr;
+        answerInput.value = '';
+        answerInput.disabled = false;
+        submitButton.disabled = false;
+        answerInput.focus();
+        answerFeedback.textContent = '';
+      };
+
+      const lockInput = () => {
+        answerInput.disabled = true;
+        submitButton.disabled = true;
+      };
+
+      // ── Join matchmaking ──────────────────────────────────────────────────
       joinButton.addEventListener('click', () => {
         answerFeedback.textContent = '';
         questionWrapper.style.display = 'none';
+        scoreboard.style.display = 'none';
         questionText.textContent = '';
+        players = [];
         setState('Joining matchmaking...');
         socket.emit('join_playground');
       });
 
+      // ── Submit answer ─────────────────────────────────────────────────────
       submitButton.addEventListener('click', () => {
-        if (!inMatch) {
-          return;
-        }
+        if (!inMatch) return;
         const answer = answerInput.value.trim();
+        if (!answer) return;
         socket.emit('submit_answer', { answer });
       });
 
-      answerInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          submitButton.click();
-        }
+      answerInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); submitButton.click(); }
       });
 
+      // ── Socket events ─────────────────────────────────────────────────────
       socket.on('queue_status', (payload) => {
         setState(payload.message || 'Waiting...');
       });
 
       socket.on('match_found', (payload) => {
         inMatch = true;
+        players = payload.players;
+        totalRounds = payload.total_rounds;
         joinButton.disabled = true;
-        questionWrapper.style.display = 'block';
-        questionText.textContent = payload.question;
-        answerInput.value = '';
-        answerInput.focus();
-        answerFeedback.textContent = `Match found: ${payload.players.join(' vs ')}. Winner gets ${payload.points_to_win} points.`;
-        setState('Match started!');
+        scoreboard.style.display = 'block';
+        updateScoreboard(payload.round, payload.scores);
+        showQuestion(payload.question);
+        setState(`Match started: ${players.join(' vs ')}`);
       });
 
       socket.on('answer_result', (payload) => {
         answerFeedback.textContent = payload.message || '';
       });
 
+      socket.on('round_ended', (payload) => {
+        lockInput();
+        answerFeedback.textContent =
+          `✔ ${payload.round_winner} got it! Answer: "${payload.correct_answer}"`;
+        updateScoreboard(payload.round, payload.scores);
+      });
+
+      socket.on('next_round', (payload) => {
+        updateScoreboard(payload.round, payload.scores);
+        showQuestion(payload.question);
+        setState(`Round ${payload.round} of ${payload.total_rounds}`);
+      });
+
       socket.on('match_ended', (payload) => {
         inMatch = false;
         joinButton.disabled = false;
         questionWrapper.style.display = 'none';
-        const reason = payload.reason === 'opponent_disconnected'
-          ? 'Opponent disconnected.'
-          : 'Correct answer submitted.';
-        setState(`Winner: ${payload.winner}. ${reason} +${payload.points_awarded} points.`);
+
+        let summary = '';
+        if (payload.reason === 'opponent_disconnected') {
+          summary = `Opponent disconnected. You win! (+${payload.disconnect_bonus} bonus points)`;
+        } else if (payload.draw) {
+          summary = `It's a draw! Points awarded for rounds won.`;
+        } else {
+          summary = `${payload.winner} wins the match!`;
+        }
+
+        const scoreStr = Object.entries(payload.scores)
+          .map(([u, s]) => `${u}: ${s}`).join('  —  ');
+        setState(`${summary} Final scores: ${scoreStr}`);
       });
     })();
   </script>
