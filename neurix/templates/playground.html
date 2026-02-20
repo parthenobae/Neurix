@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1>Playground</h1>
+
+  <div class="content-section">
+    <h3>Machine Learning Playground</h3>
+    <p class="text-muted mb-2">Join a 1v1 ML quiz match. The first correct answer wins.</p>
+
+    <button id="join-playground" class="btn btn-outline-info btn-sm" {% if not current_user.is_authenticated %}disabled{% endif %}>
+      Join Matchmaking
+    </button>
+
+    {% if not current_user.is_authenticated %}
+      <p class="text-muted mt-2 mb-0">Please login to participate and earn points.</p>
+    {% endif %}
+
+    <div id="playground-state" class="mt-3">Idle.</div>
+
+    <div id="question-wrapper" class="mt-3" style="display: none;">
+      <p class="mb-2"><strong>Question:</strong> <span id="question-text"></span></p>
+      <div class="input-group input-group-sm">
+        <input id="answer-input" type="text" class="form-control" placeholder="Type your answer" maxlength="120">
+        <div class="input-group-append">
+          <button id="submit-answer" class="btn btn-primary" type="button">Submit</button>
+        </div>
+      </div>
+      <small id="answer-feedback" class="form-text text-muted"></small>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    (function () {
+      const joinButton = document.getElementById('join-playground');
+      const submitButton = document.getElementById('submit-answer');
+      const answerInput = document.getElementById('answer-input');
+      const stateBox = document.getElementById('playground-state');
+      const questionWrapper = document.getElementById('question-wrapper');
+      const questionText = document.getElementById('question-text');
+      const answerFeedback = document.getElementById('answer-feedback');
+
+      if (!joinButton) {
+        return;
+      }
+
+      const socket = io();
+      let inMatch = false;
+
+      const setState = (msg) => {
+        stateBox.textContent = msg;
+      };
+
+      joinButton.addEventListener('click', () => {
+        answerFeedback.textContent = '';
+        questionWrapper.style.display = 'none';
+        questionText.textContent = '';
+        setState('Joining matchmaking...');
+        socket.emit('join_playground');
+      });
+
+      submitButton.addEventListener('click', () => {
+        if (!inMatch) {
+          return;
+        }
+        const answer = answerInput.value.trim();
+        socket.emit('submit_answer', { answer });
+      });
+
+      answerInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitButton.click();
+        }
+      });
+
+      socket.on('queue_status', (payload) => {
+        setState(payload.message || 'Waiting...');
+      });
+
+      socket.on('match_found', (payload) => {
+        inMatch = true;
+        joinButton.disabled = true;
+        questionWrapper.style.display = 'block';
+        questionText.textContent = payload.question;
+        answerInput.value = '';
+        answerInput.focus();
+        answerFeedback.textContent = `Match found: ${payload.players.join(' vs ')}. Winner gets ${payload.points_to_win} points.`;
+        setState('Match started!');
+      });
+
+      socket.on('answer_result', (payload) => {
+        answerFeedback.textContent = payload.message || '';
+      });
+
+      socket.on('match_ended', (payload) => {
+        inMatch = false;
+        joinButton.disabled = false;
+        questionWrapper.style.display = 'none';
+        const reason = payload.reason === 'opponent_disconnected'
+          ? 'Opponent disconnected.'
+          : 'Correct answer submitted.';
+        setState(`Winner: ${payload.winner}. ${reason} +${payload.points_awarded} points.`);
+      });
+    })();
+  </script>
+{% endblock content %}
