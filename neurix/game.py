@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import logging
+import os
 import random
 from threading import Lock
 from typing import Dict, List, Optional
@@ -12,42 +15,25 @@ from flask_socketio import emit, join_room, leave_room
 from neurix import db, socketio
 from neurix.models import User
 
+try:
+    from groq import Groq
+    _groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+except Exception:
+    _groq_client = None
 
-# Each question has: question, answer (correct), distractors (3 wrong options)
-QUESTIONS = [
+log = logging.getLogger(__name__)
+
+# ── Fallback questions (used if AI generation fails) ──────────────────────────
+_FALLBACK_QUESTIONS = [
     {
         "question": "Which algorithm is commonly used for binary classification and outputs probabilities using a sigmoid function?",
         "answer": "Logistic Regression",
         "distractors": ["Linear Regression", "Decision Tree", "K-Nearest Neighbors"],
     },
     {
-        "question": "What does overfitting mean in machine learning?",
-        "answer": "The model memorises training data and fails to generalise",
-        "distractors": [
-            "The model is too simple to capture patterns",
-            "The model converges too slowly",
-            "The model uses too few features",
-        ],
-    },
-    {
-        "question": "Which validation strategy repeatedly splits data into training and validation folds?",
-        "answer": "K-Fold Cross Validation",
-        "distractors": ["Hold-Out Validation", "Leave-One-Out", "Bootstrap Sampling"],
-    },
-    {
         "question": "In gradient descent, what parameter controls the step size of each update?",
         "answer": "Learning Rate",
         "distractors": ["Momentum", "Batch Size", "Weight Decay"],
-    },
-    {
-        "question": "Which metric is often preferred over accuracy for imbalanced binary datasets?",
-        "answer": "F1 Score",
-        "distractors": ["Mean Squared Error", "R² Score", "Log Loss"],
-    },
-    {
-        "question": "What type of neural network layer connects every neuron to every neuron in the next layer?",
-        "answer": "Fully Connected (Dense) Layer",
-        "distractors": ["Convolutional Layer", "Pooling Layer", "Recurrent Layer"],
     },
     {
         "question": "Which technique randomly drops neurons during training to reduce overfitting?",
@@ -62,7 +48,7 @@ QUESTIONS = [
     {
         "question": "Which unsupervised learning algorithm groups data points into k clusters?",
         "answer": "K-Means Clustering",
-        "distractors": ["DBSCAN", "Principal Component Analysis", "Linear Discriminant Analysis"],
+        "distractors": ["DBSCAN", "PCA", "Linear Discriminant Analysis"],
     },
     {
         "question": "Which algorithm builds an ensemble of decision trees using random feature subsets?",
@@ -70,52 +56,24 @@ QUESTIONS = [
         "distractors": ["AdaBoost", "Support Vector Machine", "Naive Bayes"],
     },
     {
-        "question": "What term describes the error caused by overly simple assumptions in a learning algorithm?",
-        "answer": "Bias",
-        "distractors": ["Variance", "Entropy", "Regularisation"],
-    },
-    {
-        "question": "Which activation function outputs values strictly between 0 and 1, used in binary classification output layers?",
+        "question": "Which activation function outputs values strictly between 0 and 1?",
         "answer": "Sigmoid",
         "distractors": ["ReLU", "Tanh", "Softmax"],
     },
     {
-        "question": "What is the name of the optimisation algorithm that adapts learning rates for each parameter individually?",
+        "question": "What is the name of the optimisation algorithm that adapts learning rates per parameter?",
         "answer": "Adam",
         "distractors": ["SGD", "RMSProp", "Adagrad"],
     },
     {
         "question": "Which dimensionality reduction technique projects data onto directions of maximum variance?",
-        "answer": "Principal Component Analysis (PCA)",
-        "distractors": ["t-SNE", "UMAP", "Linear Discriminant Analysis"],
+        "answer": "PCA",
+        "distractors": ["t-SNE", "UMAP", "LDA"],
     },
     {
-        "question": "What is the purpose of a confusion matrix in classification tasks?",
-        "answer": "To show the counts of true/false positives and negatives",
-        "distractors": [
-            "To measure the distance between class centroids",
-            "To visualise feature correlations",
-            "To plot the learning curve",
-        ],
-    },
-    {
-        "question": "Which loss function is standard for multi-class classification with softmax output?",
-        "answer": "Categorical Cross-Entropy",
-        "distractors": ["Mean Squared Error", "Hinge Loss", "Huber Loss"],
-    },
-    {
-        "question": "What does the ROC curve plot?",
-        "answer": "True Positive Rate vs False Positive Rate",
-        "distractors": [
-            "Precision vs Recall",
-            "Loss vs Epochs",
-            "Accuracy vs Model Complexity",
-        ],
-    },
-    {
-        "question": "Which technique scales each feature to have zero mean and unit variance?",
-        "answer": "Standardisation (Z-score normalisation)",
-        "distractors": ["Min-Max Scaling", "Log Transformation", "One-Hot Encoding"],
+        "question": "Which metric is often preferred over accuracy for imbalanced binary datasets?",
+        "answer": "F1 Score",
+        "distractors": ["Mean Squared Error", "R² Score", "Log Loss"],
     },
 ]
 
@@ -124,27 +82,118 @@ POINTS_PER_ROUND = 1
 DISCONNECT_BONUS = 3
 LABELS = ["A", "B", "C", "D"]
 
+# ── AI question generation ─────────────────────────────────────────────────────
+
+_SYSTEM_PROMPT = (
+    "You are a machine learning quiz question generator. "
+    "You respond ONLY with valid raw JSON arrays — no markdown, no explanation, no backticks."
+)
+
+_USER_PROMPT = """\
+Generate {n} unique multiple-choice questions for a competitive 1v1 machine learning quiz game.
+
+Rules:
+- Test ML/AI/data-science knowledge at undergraduate level.
+- Each question must have exactly 1 correct answer and 3 plausible but wrong distractors.
+- All {n} questions must cover different topics.
+- Keep question text concise (1-2 sentences max).
+- Keep each option text to 10 words or fewer.
+
+Return a JSON array where each element has exactly these keys:
+  "question"    : string
+  "answer"      : string  (correct option)
+  "distractors" : array of exactly 3 strings (wrong options)
+
+Example:
+[{{"question":"What does learning rate control in gradient descent?","answer":"Step size of each weight update","distractors":["Number of training epochs","Size of the training batch","Depth of the neural network"]}}]
+"""
+
+
+def _generate_questions_via_ai(n: int = TOTAL_ROUNDS) -> List[Dict]:
+    """Call Groq to generate n fresh MCQ questions. Returns parsed list or []."""
+    if _groq_client is None:
+        log.warning("Groq client not available — using fallback questions.")
+        return []
+
+    try:
+        response = _groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",   # free, fast, high quality
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user",   "content": _USER_PROMPT.format(n=n)},
+            ],
+            temperature=0.8,
+            max_tokens=2048,
+        )
+        raw = response.choices[0].message.content.strip()
+
+        # Strip accidental markdown fences
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        questions = json.loads(raw)
+
+        # Validate structure
+        validated = []
+        for q in questions:
+            if (
+                isinstance(q, dict)
+                and isinstance(q.get("question"), str)
+                and isinstance(q.get("answer"), str)
+                and isinstance(q.get("distractors"), list)
+                and len(q["distractors"]) == 3
+                and all(isinstance(d, str) for d in q["distractors"])
+            ):
+                validated.append({
+                    "question":    q["question"].strip(),
+                    "answer":      q["answer"].strip(),
+                    "distractors": [d.strip() for d in q["distractors"]],
+                })
+
+        if len(validated) >= n:
+            return validated[:n]
+
+        log.warning("Groq returned %d valid questions, expected %d. Using fallback.", len(validated), n)
+        return []
+
+    except Exception as exc:
+        log.exception("AI question generation failed: %s", exc)
+        return []
+
+
+def _pick_questions() -> List[Dict]:
+    """Return TOTAL_ROUNDS questions — AI-generated with fallback to static pool."""
+    questions = _generate_questions_via_ai(TOTAL_ROUNDS)
+    if not questions:
+        pool = _FALLBACK_QUESTIONS.copy()
+        random.shuffle(pool)
+        questions = pool[:TOTAL_ROUNDS]
+    return questions
+
+
+# ── Option builder ─────────────────────────────────────────────────────────────
 
 def _build_options(question: Dict) -> List[Dict]:
-    """Return shuffled list of {label, text, correct} for a question."""
     choices = [{"text": question["answer"], "correct": True}]
     for d in question["distractors"]:
         choices.append({"text": d, "correct": False})
     random.shuffle(choices)
-    return [{"label": LABELS[i], "text": c["text"], "correct": c["correct"]}
-            for i, c in enumerate(choices)]
+    return [
+        {"label": LABELS[i], "text": c["text"], "correct": c["correct"]}
+        for i, c in enumerate(choices)
+    ]
 
+
+# ── Matchmaker ─────────────────────────────────────────────────────────────────
 
 class Matchmaker:
     def __init__(self) -> None:
         self._lock = Lock()
         self.waiting_player: Optional[Dict] = None
         self.rooms: Dict[str, Dict] = {}
-
-    def _pick_questions(self) -> List[Dict]:
-        pool = QUESTIONS.copy()
-        random.shuffle(pool)
-        return pool[:TOTAL_ROUNDS]
 
     def _award_points(self, user_id: int, amount: int) -> None:
         user = User.query.get(user_id)
@@ -160,24 +209,20 @@ class Matchmaker:
         return {p["username"]: room["scores"][p["sid"]] for p in room["players"]}
 
     def _question_payload(self, room: Dict) -> Dict:
-        q    = room["current_question"]
         opts = room["current_options"]
         return {
-            "question": q["question"],
+            "question": room["current_question"]["question"],
             "options":  [{"label": o["label"], "text": o["text"]} for o in opts],
         }
 
     def _is_correct(self, room: Dict, label: str) -> bool:
         label = label.strip().upper()
-        for opt in room["current_options"]:
-            if opt["label"] == label and opt["correct"]:
-                return True
-        return False
+        return any(o["label"] == label and o["correct"] for o in room["current_options"])
 
     def _correct_label(self, room: Dict) -> str:
-        for opt in room["current_options"]:
-            if opt["correct"]:
-                return opt["label"]
+        for o in room["current_options"]:
+            if o["correct"]:
+                return o["label"]
         return ""
 
     def _advance_round(self, room: Dict) -> None:
@@ -210,12 +255,9 @@ class Matchmaker:
         score_a = scores[players[0]["sid"]]
         score_b = scores[players[1]["sid"]]
 
-        if score_a > score_b:
-            overall_winner = players[0]
-        elif score_b > score_a:
-            overall_winner = players[1]
-        else:
-            overall_winner = None
+        if   score_a > score_b: overall_winner = players[0]
+        elif score_b > score_a: overall_winner = players[1]
+        else:                   overall_winner = None
 
         for player in players:
             pts = scores[player["sid"]]
@@ -257,8 +299,11 @@ class Matchmaker:
             player_two = {"sid": sid, "user_id": user_id, "username": username}
             self.waiting_player = None
 
+            emit("queue_status", {"message": "Opponent found! Generating questions with AI..."}, to=sid)
+            emit("queue_status", {"message": "Opponent found! Generating questions with AI..."}, to=player_one["sid"])
+
             room_id    = f"playground-{uuid4().hex}"
-            questions  = self._pick_questions()
+            questions  = _pick_questions()
             first_q    = questions[0]
             first_opts = _build_options(first_q)
 
@@ -288,6 +333,7 @@ class Matchmaker:
                     "scores":       {player_one["username"]: 0, player_two["username"]: 0},
                     "question":     first_q["question"],
                     "options":      [{"label": o["label"], "text": o["text"]} for o in first_opts],
+                    "ai_generated": _groq_client is not None,
                 },
                 to=room_id,
             )
@@ -298,15 +344,12 @@ class Matchmaker:
             if not room:
                 emit("answer_result", {"correct": False, "message": "No active match found."})
                 return
-
             if not room["active"]:
                 emit("answer_result", {"correct": False, "message": "Match already finished."})
                 return
-
             if not label:
                 emit("answer_result", {"correct": False, "message": "No option selected."})
                 return
-
             if room["round_winner_sid"] is not None:
                 emit("answer_result", {"correct": False, "message": "Round already won."})
                 return
@@ -315,7 +358,6 @@ class Matchmaker:
                 room["round_winner_sid"] = sid
                 room["scores"][sid] += POINTS_PER_ROUND
                 winner = next(p for p in room["players"] if p["sid"] == sid)
-
                 emit(
                     "round_ended",
                     {
@@ -378,6 +420,8 @@ class Matchmaker:
 
 matchmaker = Matchmaker()
 
+
+# ── Socket event handlers ──────────────────────────────────────────────────────
 
 @socketio.on("join_playground")
 def handle_join_playground():

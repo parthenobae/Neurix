@@ -33,6 +33,20 @@
     color: #7a8799;
     margin: 0;
   }
+  .ai-header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(184,76,39,0.18);
+    border: 1px solid rgba(184,76,39,0.35);
+    color: #e8967a;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2em 0.6em;
+  }
 
   /* Round + score bar */
   .pg-meta {
@@ -58,10 +72,7 @@
     border-radius: 4px;
     padding: 0.25em 0.7em;
   }
-  .score-strip {
-    display: flex;
-    gap: 1.2rem;
-  }
+  .score-strip { display: flex; gap: 1.2rem; }
   .score-pill {
     font-size: 0.82rem;
     font-weight: 600;
@@ -80,14 +91,10 @@
     min-width: 22px;
     text-align: center;
   }
-  .score-pill.me .pts  { background: #b84c27; }
+  .score-pill.me .pts { background: #b84c27; }
 
   /* Progress bar */
-  .pg-progress-wrap {
-    height: 3px;
-    background: #e2ddd6;
-    display: none;
-  }
+  .pg-progress-wrap { height: 3px; background: #e2ddd6; display: none; }
   .pg-progress-wrap.visible { display: block; }
   .pg-progress-bar {
     height: 100%;
@@ -97,11 +104,9 @@
   }
 
   /* Body */
-  .pg-body {
-    padding: 1.5rem;
-  }
+  .pg-body { padding: 1.5rem; }
 
-  /* Status line */
+  /* Status */
   .pg-status {
     font-size: 0.875rem;
     color: #6b6860;
@@ -132,6 +137,31 @@
     50%       { opacity: 0.4; transform: scale(0.7); }
   }
 
+  /* AI generating loader */
+  .pg-generating {
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+    background: #f7f5f0;
+    border: 1px solid #e2ddd6;
+    border-radius: 7px;
+    padding: 0.9rem 1.1rem;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: #6b6860;
+    font-weight: 500;
+  }
+  .pg-generating.visible { display: flex; }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2.5px solid #e2ddd6;
+    border-top-color: #b84c27;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* Join button */
   .btn-join {
     display: inline-flex;
@@ -149,18 +179,29 @@
     transition: background 180ms ease, transform 180ms ease;
     margin-top: 0.75rem;
   }
-  .btn-join:hover:not(:disabled) {
-    background: #243347;
-    transform: translateY(-1px);
-  }
-  .btn-join:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
+  .btn-join:hover:not(:disabled) { background: #243347; transform: translateY(-1px); }
+  .btn-join:disabled { opacity: 0.45; cursor: not-allowed; }
 
   /* Question area */
   .pg-question-area { display: none; margin-top: 1.25rem; }
   .pg-question-area.visible { display: block; }
+
+  /* AI question badge */
+  .ai-question-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #b84c27;
+    background: #f0ebe5;
+    border: 1px solid rgba(184,76,39,.2);
+    border-radius: 4px;
+    padding: 0.2em 0.55em;
+    margin-bottom: 0.65rem;
+  }
 
   .question-text {
     font-family: 'DM Serif Display', serif;
@@ -172,15 +213,13 @@
     border-bottom: 1px solid #e2ddd6;
   }
 
-  /* MCQ option grid */
+  /* MCQ grid */
   .options-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.65rem;
   }
-  @media (max-width: 480px) {
-    .options-grid { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 480px) { .options-grid { grid-template-columns: 1fr; } }
 
   .option-btn {
     display: flex;
@@ -219,21 +258,9 @@
     margin-top: 1px;
   }
 
-  /* Option states */
-  .option-btn.selected {
-    border-color: #1a2535;
-    background: #eef0f4;
-  }
-  .option-btn.correct {
-    border-color: #27a35a;
-    background: #edf8f2;
-  }
+  .option-btn.correct  { border-color: #27a35a; background: #edf8f2; }
   .option-btn.correct .option-label { background: #27a35a; }
-
-  .option-btn.wrong {
-    border-color: #c0392b;
-    background: #fdf0ef;
-  }
+  .option-btn.wrong    { border-color: #c0392b; background: #fdf0ef; }
   .option-btn.wrong .option-label { background: #c0392b; }
 
   /* Feedback */
@@ -248,42 +275,13 @@
   .pg-feedback.error   { color: #c0392b; }
   .pg-feedback.info    { color: #2980b9; }
 
-  /* Match result overlay */
-  .pg-result {
-    display: none;
-    margin-top: 1.25rem;
-    background: #f7f5f0;
-    border: 1px solid #e2ddd6;
-    border-radius: 8px;
-    padding: 1.25rem 1.5rem;
-  }
+  /* Match result */
+  .pg-result { display: none; margin-top: 1.25rem; background: #f7f5f0; border: 1px solid #e2ddd6; border-radius: 8px; padding: 1.25rem 1.5rem; }
   .pg-result.visible { display: block; }
-  .result-headline {
-    font-family: 'DM Serif Display', serif;
-    font-size: 1.25rem;
-    color: #1c1c1e;
-    margin-bottom: 0.5rem;
-  }
-  .result-scores {
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin-top: 0.75rem;
-  }
-  .result-score-item {
-    background: #fff;
-    border: 1px solid #e2ddd6;
-    border-radius: 6px;
-    padding: 0.5rem 0.9rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #1a2535;
-  }
-  .result-score-item span {
-    font-size: 1.1rem;
-    color: #b84c27;
-    margin-left: 0.3rem;
-  }
+  .result-headline { font-family: 'DM Serif Display', serif; font-size: 1.25rem; color: #1c1c1e; margin-bottom: 0.5rem; }
+  .result-scores { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; }
+  .result-score-item { background: #fff; border: 1px solid #e2ddd6; border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.875rem; font-weight: 600; color: #1a2535; }
+  .result-score-item span { font-size: 1.1rem; color: #b84c27; margin-left: 0.3rem; }
 </style>
 
 <h1 style="font-family:'DM Serif Display',serif; font-size:1.9rem; margin-bottom:1.25rem;">Playground</h1>
@@ -296,14 +294,16 @@
       <p class="pg-title">ML Quiz — 1v1 Battle</p>
       <p class="pg-subtitle">10 rounds · First correct answer wins the round · MCQ format</p>
     </div>
+    <span class="ai-header-badge">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 8v4l3 3"/></svg>
+      AI Generated
+    </span>
   </div>
 
   <!-- Round / score bar -->
   <div id="pg-meta" class="pg-meta">
     <span id="round-badge" class="round-badge">Round 1 / 10</span>
-    <div class="score-strip" id="score-strip">
-      <!-- populated by JS -->
-    </div>
+    <div class="score-strip" id="score-strip"></div>
   </div>
 
   <!-- Progress bar -->
@@ -314,10 +314,8 @@
   <!-- Body -->
   <div class="pg-body">
 
-    <!-- Status -->
     <p id="pg-status" class="pg-status">Idle.</p>
 
-    <!-- Join button -->
     <button id="btn-join" class="btn-join" {% if not current_user.is_authenticated %}disabled{% endif %}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Join Matchmaking
@@ -327,12 +325,20 @@
       <p class="pg-feedback info mt-2">Please log in to participate and earn points.</p>
     {% endif %}
 
+    <!-- AI generating loader -->
+    <div id="pg-generating" class="pg-generating">
+      <div class="spinner"></div>
+      <span>Generating fresh AI questions for your match — this takes a moment…</span>
+    </div>
+
     <!-- Question + options -->
     <div id="pg-question-area" class="pg-question-area">
-      <p id="question-text" class="question-text"></p>
-      <div id="options-grid" class="options-grid">
-        <!-- 4 option buttons injected by JS -->
+      <div id="ai-question-badge" class="ai-question-badge" style="display:none;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        AI Generated Question
       </div>
+      <p id="question-text" class="question-text"></p>
+      <div id="options-grid" class="options-grid"></div>
       <div id="pg-feedback" class="pg-feedback"></div>
     </div>
 
@@ -356,7 +362,9 @@
   const scoreStrip     = document.getElementById('score-strip');
   const progressWrap   = document.getElementById('pg-progress-wrap');
   const progressBar    = document.getElementById('pg-progress-bar');
+  const pgGenerating   = document.getElementById('pg-generating');
   const questionArea   = document.getElementById('pg-question-area');
+  const aiBadge        = document.getElementById('ai-question-badge');
   const questionText   = document.getElementById('question-text');
   const optionsGrid    = document.getElementById('options-grid');
   const pgFeedback     = document.getElementById('pg-feedback');
@@ -368,11 +376,12 @@
   if (!btnJoin) return;
 
   const socket = io();
-  let inMatch     = false;
-  let players     = [];      // [username1, username2]
-  let myUsername  = '';
-  let totalRounds = 10;
-  let locked      = false;
+  let inMatch      = false;
+  let players      = [];
+  let myUsername   = '';
+  let totalRounds  = 10;
+  let locked       = false;
+  let aiGenerated  = false;
 
   /* ── Helpers ──────────────────────────────────────────────── */
   const setStatus = (msg, cls = '') => {
@@ -388,12 +397,10 @@
   const updateMeta = (round, scores) => {
     roundBadge.textContent = `Round ${round} / ${totalRounds}`;
     progressBar.style.width = `${((round - 1) / totalRounds) * 100}%`;
-
-    scoreStrip.innerHTML = players.map((u, i) => {
-      const pts   = scores[u] ?? 0;
-      const isMe  = u === myUsername;
+    scoreStrip.innerHTML = players.map(u => {
+      const isMe = u === myUsername;
       return `<div class="score-pill ${isMe ? 'me' : ''}">
-        ${u} <span class="pts">${pts}</span>
+        ${u} <span class="pts">${scores[u] ?? 0}</span>
       </div>`;
     }).join('');
   };
@@ -404,13 +411,10 @@
       const btn = document.createElement('button');
       btn.className = 'option-btn';
       btn.dataset.label = opt.label;
-      btn.innerHTML = `
-        <span class="option-label">${opt.label}</span>
-        <span class="option-text">${opt.text}</span>`;
+      btn.innerHTML = `<span class="option-label">${opt.label}</span><span>${opt.text}</span>`;
       btn.addEventListener('click', () => {
         if (locked || !inMatch) return;
         socket.emit('submit_answer', { label: opt.label });
-        // Mark selected immediately for responsiveness
         document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
       });
@@ -423,12 +427,10 @@
     document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
   };
 
-  const highlightResult = (correctLabel, chosenLabel = null) => {
+  const highlightResult = (correctLabel) => {
     document.querySelectorAll('.option-btn').forEach(btn => {
-      const lbl = btn.dataset.label;
       btn.classList.remove('selected');
-      if (lbl === correctLabel) btn.classList.add('correct');
-      else if (lbl === chosenLabel) btn.classList.add('wrong');
+      if (btn.dataset.label === correctLabel) btn.classList.add('correct');
     });
   };
 
@@ -436,18 +438,20 @@
     pgResult.classList.add('visible');
     resultHeadline.textContent = headline;
     resultSub.textContent = sub;
-    resultScores.innerHTML = Object.entries(scores).map(([u, s]) =>
-      `<div class="result-score-item">${u}<span>${s}</span></div>`
-    ).join('');
+    resultScores.innerHTML = Object.entries(scores)
+      .map(([u, s]) => `<div class="result-score-item">${u}<span>${s}</span></div>`)
+      .join('');
   };
 
   const resetUI = () => {
-    inMatch = false; locked = false; players = []; myUsername = '';
+    inMatch = false; locked = false; players = []; myUsername = ''; aiGenerated = false;
     pgMeta.classList.remove('visible');
     progressWrap.classList.remove('visible');
     questionArea.classList.remove('visible');
     pgResult.classList.remove('visible');
+    pgGenerating.classList.remove('visible');
     optionsGrid.innerHTML = '';
+    aiBadge.style.display = 'none';
     setFeedback('');
     progressBar.style.width = '0%';
   };
@@ -462,21 +466,28 @@
 
   /* ── Socket events ────────────────────────────────────────── */
   socket.on('queue_status', ({ message }) => {
-    setStatus(message || 'Waiting...', 'waiting');
+    // Show the generating loader when AI is preparing questions
+    if (message && message.includes('Generating questions with AI')) {
+      setStatus('Opponent found!', 'waiting');
+      pgGenerating.classList.add('visible');
+    } else {
+      setStatus(message || 'Waiting...', 'waiting');
+    }
   });
 
   socket.on('match_found', (payload) => {
     inMatch = true; locked = false;
     players = payload.players;
     totalRounds = payload.total_rounds;
-    // Try to figure out which player is "me" — can't know for sure from client
-    // We'll let round_ended reveal it; for now just show both
-    myUsername = ''; // will be set on first round_ended win
+    aiGenerated = payload.ai_generated || false;
 
+    pgGenerating.classList.remove('visible');
     pgMeta.classList.add('visible');
     progressWrap.classList.add('visible');
     pgResult.classList.remove('visible');
     btnJoin.disabled = true;
+
+    if (aiGenerated) aiBadge.style.display = 'inline-flex';
 
     updateMeta(payload.round, payload.scores);
     questionText.textContent = payload.question;
@@ -488,18 +499,14 @@
   });
 
   socket.on('answer_result', ({ message, chosen }) => {
-    // Wrong answer — highlight the chosen option in red
     if (chosen) {
       document.querySelectorAll('.option-btn').forEach(btn => {
         btn.classList.remove('selected');
-        if (btn.dataset.label === chosen) btn.classList.add('wrong');
+        if (btn.dataset.label === chosen) {
+          btn.classList.add('wrong');
+          setTimeout(() => btn.classList.remove('wrong'), 700);
+        }
       });
-      // Brief shake, then re-enable
-      setTimeout(() => {
-        document.querySelectorAll('.option-btn').forEach(btn => {
-          btn.classList.remove('wrong');
-        });
-      }, 700);
     }
     setFeedback(message || 'Wrong — try again.', 'error');
   });
@@ -509,8 +516,6 @@
     lockOptions();
     highlightResult(payload.correct_label);
     updateMeta(payload.round, payload.scores);
-
-    const iWon = payload.round_winner === myUsername;
     setFeedback(
       `${payload.round_winner} answered correctly! (${payload.correct_label}: ${payload.correct_answer})`,
       'success'
