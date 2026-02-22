@@ -1,4 +1,102 @@
 {% extends "layout.html" %}
 {% block content %}
-    <h1> Dashboard </h1>
+
+<style>
+.dashboard-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.9rem;
+  color: #1a2535;
+  margin-bottom: .2rem;
+}
+.dashboard-sub {
+  color: #6b7280;
+  font-size: .9rem;
+  margin-bottom: 1.8rem;
+}
+
+.feature-card {
+  background: #fff;
+  border: 1.5px solid #e5e0d8;
+  border-radius: 14px;
+  padding: 1.5rem;
+  margin-bottom: 1.1rem;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: box-shadow .18s, transform .18s;
+  box-shadow: 0 2px 8px rgba(26,37,53,.05);
+}
+.feature-card:hover {
+  box-shadow: 0 6px 20px rgba(26,37,53,.1);
+  transform: translateY(-2px);
+  text-decoration: none;
+  color: inherit;
+}
+.feature-card-inner { display: flex; align-items: flex-start; gap: 1rem; }
+.feature-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; flex-shrink: 0;
+}
+.feature-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.1rem; color: #1a2535;
+  margin-bottom: .2rem;
+}
+.feature-desc { font-size: .84rem; color: #6b7280; line-height: 1.5; }
+.feature-arrow {
+  margin-left: auto; color: #c8c2ba;
+  font-size: 1.1rem; align-self: center; flex-shrink: 0;
+}
+</style>
+
+<div class="dashboard-title">Dashboard</div>
+<p class="dashboard-sub">Welcome back{% if current_user.is_authenticated %}, {{ current_user.username }}{% endif %}. Pick up where you left off.</p>
+
+<!-- Learn card -->
+<a href="{{ url_for('learn.dashboard') }}" class="feature-card">
+  <div class="feature-card-inner">
+    <div class="feature-icon" style="background:#eaf6ee;">🧠</div>
+    <div>
+      <div class="feature-title">Learning Path</div>
+      <div class="feature-desc">
+        Structured ML modules across Beginner, Intermediate and Advanced levels.
+        Built-in IDE, quizzes, and points for every module you complete.
+      </div>
+    </div>
+    <span class="feature-arrow">→</span>
+  </div>
+</a>
+
+<!-- Playground card -->
+<a href="{{ url_for('playground.index') }}" class="feature-card">
+  <div class="feature-card-inner">
+    <div class="feature-icon" style="background:#fdf0ea;">⚡</div>
+    <div>
+      <div class="feature-title">ML Playground</div>
+      <div class="feature-desc">
+        Challenge another user to a live 1v1 AI-generated ML quiz. 10 rounds,
+        real-time scoring, and points on the line.
+      </div>
+    </div>
+    <span class="feature-arrow">→</span>
+  </div>
+</a>
+
+<!-- Blogs card -->
+<a href="{{ url_for('main.blogs') }}" class="feature-card">
+  <div class="feature-card-inner">
+    <div class="feature-icon" style="background:#eef2fb;">📝</div>
+    <div>
+      <div class="feature-title">Blogs</div>
+      <div class="feature-desc">
+        Read and share articles from the Neurix community on ML research,
+        tutorials, and industry news.
+      </div>
+    </div>
+    <span class="feature-arrow">→</span>
+  </div>
+</a>
+
 {% endblock content %}

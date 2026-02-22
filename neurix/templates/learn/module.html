@@ -1,0 +1,387 @@
+{% extends "layout.html" %}
+
+{% block right_navbar %}
+<span class="nav-item nav-link" style="color:#b84c27; font-weight:600;">
+  ⚡ {{ current_user.points }} pts
+</span>
+{% endblock right_navbar %}
+
+{% block content %}
+<style>
+/* ── Module Page ─────────────────────────────────── */
+.mod-back {
+  display: inline-flex; align-items: center; gap: .4rem;
+  font-size: .82rem; color: #6b7280; text-decoration: none;
+  margin-bottom: 1.2rem;
+}
+.mod-back:hover { color: #1a2535; text-decoration: none; }
+
+.mod-header { margin-bottom: 1.5rem; }
+.mod-level-badge {
+  font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: .2rem .6rem;
+  border-radius: 4px; margin-bottom: .5rem; display: inline-block;
+}
+.badge-beginner     { background: #eaf6ee; color: #27a35a; }
+.badge-intermediate { background: #fdf0ea; color: #b84c27; }
+.badge-advanced     { background: #eef2fb; color: #2563eb; }
+
+.mod-header h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.75rem; color: #1a2535; margin: 0;
+}
+.mod-header p { color: #6b7280; font-size: .9rem; margin-top: .3rem; }
+
+.mod-completed-banner {
+  background: #eaf6ee; border: 1.5px solid #a7e3be;
+  border-radius: 10px; padding: .75rem 1rem;
+  display: flex; align-items: center; gap: .6rem;
+  margin-bottom: 1.2rem; font-size: .88rem; color: #1a5c37;
+}
+
+/* Theory card */
+.theory-card {
+  background: #fff; border: 1.5px solid #e5e0d8;
+  border-radius: 12px; padding: 1.6rem 1.8rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(26,37,53,.05);
+}
+.theory-card h5 { font-family: 'DM Serif Display', serif; color: #1a2535; }
+.theory-card pre {
+  background: #1e2b3c; color: #e2e8f0;
+  border-radius: 8px; padding: 1rem 1.2rem;
+  font-size: .82rem; overflow-x: auto;
+}
+.theory-card code { background: #f0ede8; padding: .1em .35em; border-radius: 4px; font-size: .85em; }
+.theory-card pre code { background: none; padding: 0; }
+.formula-block {
+  background: #f7f5f0; border-left: 3px solid #b84c27;
+  padding: .6rem 1rem; border-radius: 0 6px 6px 0;
+  font-family: 'Courier New', monospace; margin: .8rem 0;
+}
+
+/* IDE card */
+.ide-card {
+  background: #fff; border: 1.5px solid #e5e0d8;
+  border-radius: 12px; overflow: hidden;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(26,37,53,.05);
+}
+.ide-topbar {
+  background: #1e2b3c; padding: .6rem 1rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ide-topbar-left { display: flex; align-items: center; gap: .6rem; }
+.ide-dot { width:10px; height:10px; border-radius:50%; }
+.ide-lang-pill {
+  font-size: .7rem; font-weight: 700; letter-spacing: .05em;
+  background: #2e3f58; color: #94a3b8;
+  padding: .2rem .6rem; border-radius: 4px;
+}
+.ide-challenge {
+  background: #f7f5f0; border-bottom: 1px solid #e5e0d8;
+  padding: .85rem 1.1rem; font-size: .85rem; color: #4b5563;
+}
+.ide-challenge strong { color: #1a2535; }
+
+#code-editor {
+  width: 100%; min-height: 200px;
+  background: #1e2b3c; color: #e2e8f0;
+  border: none; outline: none; resize: vertical;
+  font-family: 'Courier New', monospace;
+  font-size: .84rem; line-height: 1.6;
+  padding: 1rem 1.2rem;
+  tab-size: 4;
+}
+.ide-footer {
+  padding: .75rem 1rem;
+  display: flex; align-items: center; gap: .75rem;
+  border-top: 1px solid #e5e0d8;
+  background: #faf8f4;
+}
+.btn-run {
+  background: #27a35a; color: #fff;
+  border: none; padding: .42rem 1.1rem;
+  border-radius: 7px; font-size: .83rem; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.btn-run:hover { background: #1e8048; }
+.btn-run:disabled { opacity: .6; cursor: not-allowed; }
+.run-status { font-size: .8rem; flex: 1; }
+
+.ide-output {
+  background: #111827; color: #d1fae5;
+  font-family: 'Courier New', monospace;
+  font-size: .8rem; padding: .85rem 1.2rem;
+  border-top: 1px solid #2e3f58;
+  min-height: 60px; white-space: pre-wrap;
+  display: none;
+}
+.ide-output.stderr { color: #fca5a5; }
+.ide-output.visible { display: block; }
+
+.output-pass {
+  background: #eaf6ee; border: 1px solid #a7e3be;
+  color: #1a5c37; border-radius: 7px;
+  padding: .5rem .9rem; font-size: .82rem;
+  margin: .5rem 1rem; display: none;
+}
+.output-pass.visible { display: block; }
+
+/* MCQ */
+.mcq-card {
+  background: #fff; border: 1.5px solid #e5e0d8;
+  border-radius: 12px; padding: 1.4rem 1.6rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(26,37,53,.05);
+}
+.mcq-card h5 { font-family: 'DM Serif Display', serif; color: #1a2535; margin-bottom: 1rem; }
+.mcq-question { font-size: .93rem; color: #1a2535; margin-bottom: 1rem; font-weight: 500; }
+.mcq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin-bottom: 1rem; }
+.mcq-btn {
+  background: #f7f5f0; border: 1.5px solid #e5e0d8;
+  border-radius: 9px; padding: .65rem .9rem;
+  cursor: pointer; display: flex; align-items: center; gap: .65rem;
+  font-size: .85rem; color: #374151; text-align: left;
+  transition: all .15s; line-height: 1.35;
+}
+.mcq-btn:hover { border-color: #1a2535; background: #f0ede8; }
+.mcq-btn.selected { border-color: #1a2535; background: #1a2535; color: #fff; }
+.mcq-btn.correct  { border-color: #27a35a; background: #eaf6ee; color: #1a5c37; }
+.mcq-btn.wrong    { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
+.mcq-label {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(255,255,255,.2); border: 1.5px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem; font-weight: 700; flex-shrink: 0;
+}
+.mcq-btn:not(.selected) .mcq-label { background: #e5e0d8; border-color: #c8c2ba; color: #6b7280; }
+.btn-submit-mcq {
+  background: #b84c27; color: #fff; border: none;
+  padding: .45rem 1.3rem; border-radius: 8px;
+  font-size: .84rem; font-weight: 600; cursor: pointer;
+  transition: background .15s;
+}
+.btn-submit-mcq:hover { background: #963d20; }
+.btn-submit-mcq:disabled { opacity: .5; cursor: not-allowed; }
+.mcq-feedback {
+  margin-top: .75rem; padding: .6rem .9rem;
+  border-radius: 7px; font-size: .83rem; display: none;
+}
+.mcq-feedback.visible { display: block; }
+.mcq-feedback.success { background: #eaf6ee; color: #1a5c37; border: 1px solid #a7e3be; }
+.mcq-feedback.error   { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+
+@media(max-width:576px) { .mcq-grid { grid-template-columns: 1fr; } }
+</style>
+
+<!-- Back link -->
+<a href="{{ url_for('learn.dashboard') }}" class="mod-back">
+  ← Back to Learning Path
+</a>
+
+<!-- Header -->
+<div class="mod-header">
+  <span class="mod-level-badge badge-{{ mod.level }}">{{ mod.level }}</span>
+  <h2>{{ mod.title }}</h2>
+  <p>{{ mod.description }}</p>
+</div>
+
+{% if progress.completed %}
+<div class="mod-completed-banner">
+  ✅ <strong>Module completed!</strong> You've already earned points for this one.
+</div>
+{% endif %}
+
+<!-- Theory -->
+<div class="theory-card">
+  {{ mod.theory | safe }}
+</div>
+
+<!-- IDE (if module has one) -->
+{% if mod.has_ide %}
+<div class="ide-card" id="ide-section">
+  <div class="ide-topbar">
+    <div class="ide-topbar-left">
+      <div class="ide-dot" style="background:#ff5f57;"></div>
+      <div class="ide-dot" style="background:#febc2e;"></div>
+      <div class="ide-dot" style="background:#28c840;"></div>
+    </div>
+    <span class="ide-lang-pill">{{ mod.ide_language | upper }}</span>
+  </div>
+
+  <div class="ide-challenge">
+    <strong>Challenge:</strong> {{ mod.challenge_description }}
+  </div>
+
+  <textarea id="code-editor" spellcheck="false">{{ mod.ide_starter }}</textarea>
+
+  <div class="ide-footer">
+    <button class="btn-run" id="run-btn" onclick="runCode()">▶ Run Code</button>
+    <span class="run-status" id="run-status"></span>
+  </div>
+
+  <div class="output-pass" id="output-pass"></div>
+  <div class="ide-output" id="ide-output"></div>
+</div>
+{% endif %}
+
+<!-- MCQ Question -->
+{% if not mod.has_ide %}
+<div class="mcq-card" id="mcq-section">
+  <h5>Knowledge Check</h5>
+  <div class="mcq-question">{{ mod.question.text }}</div>
+  <div class="mcq-grid">
+    {% for opt in mod.question.options %}
+    <button class="mcq-btn" data-label="{{ opt.label }}" onclick="selectMCQ(this)">
+      <span class="mcq-label">{{ opt.label }}</span>
+      {{ opt.text }}
+    </button>
+    {% endfor %}
+  </div>
+  <button class="btn-submit-mcq" id="mcq-submit" onclick="submitMCQ()" disabled>Submit Answer</button>
+  <div class="mcq-feedback" id="mcq-feedback"></div>
+</div>
+{% endif %}
+
+<!-- Show MCQ after IDE is solved -->
+{% if mod.has_ide %}
+<div class="mcq-card" id="mcq-section" style="display:none;">
+  <h5>Knowledge Check</h5>
+  <p style="font-size:.83rem; color:#6b7280; margin-bottom:.8rem;">
+    Answer this question to finalise your completion.
+  </p>
+  <div class="mcq-question">{{ mod.question.text }}</div>
+  <div class="mcq-grid">
+    {% for opt in mod.question.options %}
+    <button class="mcq-btn" data-label="{{ opt.label }}" onclick="selectMCQ(this)">
+      <span class="mcq-label">{{ opt.label }}</span>
+      {{ opt.text }}
+    </button>
+    {% endfor %}
+  </div>
+  <button class="btn-submit-mcq" id="mcq-submit" onclick="submitMCQ()" disabled>Submit Answer</button>
+  <div class="mcq-feedback" id="mcq-feedback"></div>
+</div>
+{% endif %}
+
+<script>
+const MODULE_ID   = "{{ mod.id }}";
+const HAS_IDE     = {{ 'true' if mod.has_ide else 'false' }};
+const ALREADY_DONE = {{ 'true' if progress.completed else 'false' }};
+let selectedAnswer = null;
+let codePassed = false;
+
+/* ── MCQ ───────────────────────────────────────────── */
+function selectMCQ(btn) {
+  document.querySelectorAll('.mcq-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedAnswer = btn.dataset.label;
+  document.getElementById('mcq-submit').disabled = false;
+}
+
+async function submitMCQ() {
+  if (!selectedAnswer) return;
+  const btn = document.getElementById('mcq-submit');
+  btn.disabled = true;
+
+  const resp = await fetch(`/learn/module/${MODULE_ID}/complete`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({answer: selectedAnswer})
+  });
+  const data = await resp.json();
+  const fb = document.getElementById('mcq-feedback');
+  fb.className = 'mcq-feedback visible ' + (data.success ? 'success' : 'error');
+  fb.textContent = data.success
+    ? (data.already_done ? '✓ Already completed.' : `✓ Correct! ${data.message}`)
+    : '✗ ' + data.message;
+
+  if (data.success) {
+    document.querySelectorAll('.mcq-btn').forEach(b => {
+      const correct = b.dataset.label === selectedAnswer && data.success;
+      b.classList.add(correct ? 'correct' : (b.dataset.label === selectedAnswer ? 'wrong' : ''));
+      b.style.pointerEvents = 'none';
+    });
+  } else {
+    btn.disabled = false;
+    setTimeout(() => {
+      document.querySelectorAll('.mcq-btn').forEach(b => b.classList.remove('selected'));
+      selectedAnswer = null;
+    }, 800);
+  }
+}
+
+/* ── IDE ───────────────────────────────────────────── */
+async function runCode() {
+  const code = document.getElementById('code-editor').value;
+  const btn  = document.getElementById('run-btn');
+  const status = document.getElementById('run-status');
+  const outputEl = document.getElementById('ide-output');
+  const passEl   = document.getElementById('output-pass');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+  status.textContent = '';
+  outputEl.className = 'ide-output';
+  passEl.className = 'output-pass';
+
+  try {
+    const resp = await fetch(`/learn/module/${MODULE_ID}/run`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code, language: '{{ mod.ide_language }}'})
+    });
+    const data = await resp.json();
+
+    const out = (data.stdout || '') + (data.stderr ? '\n⚠ ' + data.stderr : '');
+    outputEl.textContent = out || '(no output)';
+    outputEl.className = 'ide-output visible' + (data.stderr && !data.stdout ? ' stderr' : '');
+
+    if (data.passed && !ALREADY_DONE) {
+      passEl.textContent = `✅ Challenge passed! ${data.points_earned > 0 ? '+' + data.points_earned + ' pts earned!' : 'Already completed.'}`;
+      passEl.className = 'output-pass visible';
+      codePassed = true;
+      // Show MCQ section
+      document.getElementById('mcq-section').style.display = 'block';
+      document.getElementById('mcq-section').scrollIntoView({behavior:'smooth', block:'start'});
+    } else if (data.passed) {
+      passEl.textContent = '✅ Challenge passed!';
+      passEl.className = 'output-pass visible';
+      document.getElementById('mcq-section').style.display = 'block';
+    } else if (!data.error) {
+      status.textContent = '✗ Output does not match expected — check your code.';
+      status.style.color = '#dc2626';
+    }
+
+    if (data.error && !data.stdout) {
+      status.textContent = 'Runtime error — check the output panel.';
+      status.style.color = '#dc2626';
+    }
+  } catch(e) {
+    status.textContent = 'Network error — try again.';
+    status.style.color = '#dc2626';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Run Code';
+}
+
+// Tab key in textarea
+document.getElementById('code-editor')?.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const ta = e.target;
+    const start = ta.selectionStart;
+    ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(ta.selectionEnd);
+    ta.selectionStart = ta.selectionEnd = start + 4;
+  }
+});
+
+// If already done, show MCQ section immediately
+if (ALREADY_DONE && HAS_IDE) {
+  const mcq = document.getElementById('mcq-section');
+  if (mcq) mcq.style.display = 'block';
+}
+</script>
+{% endblock content %}
