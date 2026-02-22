@@ -23,7 +23,7 @@ except Exception:
 
 log = logging.getLogger(__name__)
 
-# ── Fallback questions (used if AI generation fails) ──────────────────────────
+# ── Fallback questions ─────────────────────────────────────────────────────────
 _FALLBACK_QUESTIONS = [
     {
         "question": "Which algorithm is commonly used for binary classification and outputs probabilities using a sigmoid function?",
@@ -110,14 +110,12 @@ Example:
 
 
 def _generate_questions_via_ai(n: int = TOTAL_ROUNDS) -> List[Dict]:
-    """Call Groq to generate n fresh MCQ questions. Returns parsed list or []."""
     if _groq_client is None:
         log.warning("Groq client not available — using fallback questions.")
         return []
-
     try:
         response = _groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",   # free, fast, high quality
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user",   "content": _USER_PROMPT.format(n=n)},
@@ -127,7 +125,6 @@ def _generate_questions_via_ai(n: int = TOTAL_ROUNDS) -> List[Dict]:
         )
         raw = response.choices[0].message.content.strip()
 
-        # Strip accidental markdown fences
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
@@ -136,7 +133,6 @@ def _generate_questions_via_ai(n: int = TOTAL_ROUNDS) -> List[Dict]:
 
         questions = json.loads(raw)
 
-        # Validate structure
         validated = []
         for q in questions:
             if (
@@ -165,7 +161,6 @@ def _generate_questions_via_ai(n: int = TOTAL_ROUNDS) -> List[Dict]:
 
 
 def _pick_questions() -> List[Dict]:
-    """Return TOTAL_ROUNDS questions — AI-generated with fallback to static pool."""
     questions = _generate_questions_via_ai(TOTAL_ROUNDS)
     if not questions:
         pool = _FALLBACK_QUESTIONS.copy()

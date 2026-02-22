@@ -29,7 +29,8 @@ def create_app(config_class=Config):
     from neurix.users.routes import users
     from neurix.posts.routes import posts
     from neurix.main.routes import main
-    import neurix.game  # noqa: F401
+    from neurix.playground import playground
+    app.register_blueprint(playground)
     app.register_blueprint(users)
     app.register_blueprint(posts)
     app.register_blueprint(main)

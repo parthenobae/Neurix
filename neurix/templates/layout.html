@@ -44,7 +44,7 @@
           <div class="navbar-nav mr-auto">
             <a class="nav-item nav-link" href="{{ url_for('main.home') }}">Home</a>
             <a class="nav-item nav-link" href="{{ url_for('main.blogs') }}">Blogs</a>
-            <a class="nav-item nav-link" href="{{ url_for('main.playground') }}">Playground</a>
+            <a class="nav-item nav-link" href="{{ url_for('playground.index') }}">Playground</a>
           </div>
           <div class="navbar-nav align-items-center">
             {% if current_user.is_authenticated %}
