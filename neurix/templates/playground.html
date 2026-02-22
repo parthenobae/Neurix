@@ -1,0 +1,557 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<style>
+  /* ── Playground card ─────────────────────────────────────────── */
+  .pg-card {
+    background: #ffffff;
+    border: 1px solid #e2ddd6;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Header bar */
+  .pg-header {
+    background: #1a2535;
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .pg-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.15rem;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+  .pg-subtitle {
+    font-size: 0.78rem;
+    color: #7a8799;
+    margin: 0;
+  }
+  .ai-header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(184,76,39,0.18);
+    border: 1px solid rgba(184,76,39,0.35);
+    color: #e8967a;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2em 0.6em;
+  }
+
+  /* Round + score bar */
+  .pg-meta {
+    display: none;
+    background: #f7f5f0;
+    border-bottom: 1px solid #e2ddd6;
+    padding: 0.65rem 1.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .pg-meta.visible { display: flex; }
+
+  .round-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #b84c27;
+    background: #f0ebe5;
+    border: 1px solid rgba(184,76,39,.2);
+    border-radius: 4px;
+    padding: 0.25em 0.7em;
+  }
+  .score-strip { display: flex; gap: 1.2rem; }
+  .score-pill {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #1a2535;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .score-pill .pts {
+    background: #1a2535;
+    color: #fff;
+    border-radius: 999px;
+    padding: 0.1em 0.55em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    min-width: 22px;
+    text-align: center;
+  }
+  .score-pill.me .pts { background: #b84c27; }
+
+  /* Progress bar */
+  .pg-progress-wrap { height: 3px; background: #e2ddd6; display: none; }
+  .pg-progress-wrap.visible { display: block; }
+  .pg-progress-bar {
+    height: 100%;
+    background: #b84c27;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  /* Body */
+  .pg-body { padding: 1.5rem; }
+
+  /* Status */
+  .pg-status {
+    font-size: 0.875rem;
+    color: #6b6860;
+    margin-bottom: 0;
+    min-height: 1.4em;
+  }
+  .pg-status.waiting::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #e6952a;
+    margin-right: 6px;
+    animation: pulse-dot 1.2s ease-in-out infinite;
+    vertical-align: middle;
+  }
+  .pg-status.active::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #27a35a;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.7); }
+  }
+
+  /* AI generating loader */
+  .pg-generating {
+    display: none;
+    align-items: center;
+    gap: 0.75rem;
+    background: #f7f5f0;
+    border: 1px solid #e2ddd6;
+    border-radius: 7px;
+    padding: 0.9rem 1.1rem;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    color: #6b6860;
+    font-weight: 500;
+  }
+  .pg-generating.visible { display: flex; }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2.5px solid #e2ddd6;
+    border-top-color: #b84c27;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Join button */
+  .btn-join {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #1a2535;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    padding: 0.45rem 1.1rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 180ms ease, transform 180ms ease;
+    margin-top: 0.75rem;
+  }
+  .btn-join:hover:not(:disabled) { background: #243347; transform: translateY(-1px); }
+  .btn-join:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Question area */
+  .pg-question-area { display: none; margin-top: 1.25rem; }
+  .pg-question-area.visible { display: block; }
+
+  /* AI question badge */
+  .ai-question-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #b84c27;
+    background: #f0ebe5;
+    border: 1px solid rgba(184,76,39,.2);
+    border-radius: 4px;
+    padding: 0.2em 0.55em;
+    margin-bottom: 0.65rem;
+  }
+
+  .question-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem;
+    color: #1c1c1e;
+    line-height: 1.45;
+    margin-bottom: 1.1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2ddd6;
+  }
+
+  /* MCQ grid */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+  }
+  @media (max-width: 480px) { .options-grid { grid-template-columns: 1fr; } }
+
+  .option-btn {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    background: #f7f5f0;
+    border: 1.5px solid #e2ddd6;
+    border-radius: 7px;
+    padding: 0.75rem 0.9rem;
+    cursor: pointer;
+    text-align: left;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    color: #1c1c1e;
+    line-height: 1.45;
+    transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+    width: 100%;
+  }
+  .option-btn:hover:not(:disabled) {
+    border-color: #1a2535;
+    background: #ffffff;
+    transform: translateY(-1px);
+  }
+  .option-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+  .option-label {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #1a2535;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    letter-spacing: 0.02em;
+    margin-top: 1px;
+  }
+
+  .option-btn.correct  { border-color: #27a35a; background: #edf8f2; }
+  .option-btn.correct .option-label { background: #27a35a; }
+  .option-btn.wrong    { border-color: #c0392b; background: #fdf0ef; }
+  .option-btn.wrong .option-label { background: #c0392b; }
+
+  /* Feedback */
+  .pg-feedback {
+    margin-top: 0.9rem;
+    font-size: 0.84rem;
+    min-height: 1.3em;
+    color: #6b6860;
+    font-weight: 500;
+  }
+  .pg-feedback.success { color: #27a35a; }
+  .pg-feedback.error   { color: #c0392b; }
+  .pg-feedback.info    { color: #2980b9; }
+
+  /* Match result */
+  .pg-result { display: none; margin-top: 1.25rem; background: #f7f5f0; border: 1px solid #e2ddd6; border-radius: 8px; padding: 1.25rem 1.5rem; }
+  .pg-result.visible { display: block; }
+  .result-headline { font-family: 'DM Serif Display', serif; font-size: 1.25rem; color: #1c1c1e; margin-bottom: 0.5rem; }
+  .result-scores { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; }
+  .result-score-item { background: #fff; border: 1px solid #e2ddd6; border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.875rem; font-weight: 600; color: #1a2535; }
+  .result-score-item span { font-size: 1.1rem; color: #b84c27; margin-left: 0.3rem; }
+</style>
+
+<h1 style="font-family:'DM Serif Display',serif; font-size:1.9rem; margin-bottom:1.25rem;">Playground</h1>
+
+<div class="pg-card">
+
+  <!-- Header -->
+  <div class="pg-header">
+    <div>
+      <p class="pg-title">ML Quiz — 1v1 Battle</p>
+      <p class="pg-subtitle">10 rounds · First correct answer wins the round · MCQ format</p>
+    </div>
+    <span class="ai-header-badge">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 8v4l3 3"/></svg>
+      AI Generated
+    </span>
+  </div>
+
+  <!-- Round / score bar -->
+  <div id="pg-meta" class="pg-meta">
+    <span id="round-badge" class="round-badge">Round 1 / 10</span>
+    <div class="score-strip" id="score-strip"></div>
+  </div>
+
+  <!-- Progress bar -->
+  <div id="pg-progress-wrap" class="pg-progress-wrap">
+    <div id="pg-progress-bar" class="pg-progress-bar"></div>
+  </div>
+
+  <!-- Body -->
+  <div class="pg-body">
+
+    <p id="pg-status" class="pg-status">Idle.</p>
+
+    <button id="btn-join" class="btn-join" {% if not current_user.is_authenticated %}disabled{% endif %}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Join Matchmaking
+    </button>
+
+    {% if not current_user.is_authenticated %}
+      <p class="pg-feedback info mt-2">Please log in to participate and earn points.</p>
+    {% endif %}
+
+    <!-- AI generating loader -->
+    <div id="pg-generating" class="pg-generating">
+      <div class="spinner"></div>
+      <span>Generating fresh AI questions for your match — this takes a moment…</span>
+    </div>
+
+    <!-- Question + options -->
+    <div id="pg-question-area" class="pg-question-area">
+      <div id="ai-question-badge" class="ai-question-badge" style="display:none;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        AI Generated Question
+      </div>
+      <p id="question-text" class="question-text"></p>
+      <div id="options-grid" class="options-grid"></div>
+      <div id="pg-feedback" class="pg-feedback"></div>
+    </div>
+
+    <!-- End-of-match result -->
+    <div id="pg-result" class="pg-result">
+      <p id="result-headline" class="result-headline"></p>
+      <p id="result-sub" style="font-size:0.875rem; color:#6b6860; margin:0;"></p>
+      <div id="result-scores" class="result-scores"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+(function () {
+  const btnJoin        = document.getElementById('btn-join');
+  const pgStatus       = document.getElementById('pg-status');
+  const pgMeta         = document.getElementById('pg-meta');
+  const roundBadge     = document.getElementById('round-badge');
+  const scoreStrip     = document.getElementById('score-strip');
+  const progressWrap   = document.getElementById('pg-progress-wrap');
+  const progressBar    = document.getElementById('pg-progress-bar');
+  const pgGenerating   = document.getElementById('pg-generating');
+  const questionArea   = document.getElementById('pg-question-area');
+  const aiBadge        = document.getElementById('ai-question-badge');
+  const questionText   = document.getElementById('question-text');
+  const optionsGrid    = document.getElementById('options-grid');
+  const pgFeedback     = document.getElementById('pg-feedback');
+  const pgResult       = document.getElementById('pg-result');
+  const resultHeadline = document.getElementById('result-headline');
+  const resultSub      = document.getElementById('result-sub');
+  const resultScores   = document.getElementById('result-scores');
+
+  if (!btnJoin) return;
+
+  const socket = io();
+  let inMatch      = false;
+  let players      = [];
+  let myUsername   = '';
+  let totalRounds  = 10;
+  let locked       = false;
+  let aiGenerated  = false;
+
+  /* ── Helpers ──────────────────────────────────────────────── */
+  const setStatus = (msg, cls = '') => {
+    pgStatus.textContent = msg;
+    pgStatus.className = 'pg-status' + (cls ? ' ' + cls : '');
+  };
+
+  const setFeedback = (msg, cls = '') => {
+    pgFeedback.textContent = msg;
+    pgFeedback.className = 'pg-feedback' + (cls ? ' ' + cls : '');
+  };
+
+  const updateMeta = (round, scores) => {
+    roundBadge.textContent = `Round ${round} / ${totalRounds}`;
+    progressBar.style.width = `${((round - 1) / totalRounds) * 100}%`;
+    scoreStrip.innerHTML = players.map(u => {
+      const isMe = u === myUsername;
+      return `<div class="score-pill ${isMe ? 'me' : ''}">
+        ${u} <span class="pts">${scores[u] ?? 0}</span>
+      </div>`;
+    }).join('');
+  };
+
+  const buildOptions = (options) => {
+    optionsGrid.innerHTML = '';
+    options.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.dataset.label = opt.label;
+      btn.innerHTML = `<span class="option-label">${opt.label}</span><span>${opt.text}</span>`;
+      btn.addEventListener('click', () => {
+        if (locked || !inMatch) return;
+        socket.emit('submit_answer', { label: opt.label });
+        document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+      optionsGrid.appendChild(btn);
+    });
+  };
+
+  const lockOptions = () => {
+    locked = true;
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+  };
+
+  const highlightResult = (correctLabel) => {
+    document.querySelectorAll('.option-btn').forEach(btn => {
+      btn.classList.remove('selected');
+      if (btn.dataset.label === correctLabel) btn.classList.add('correct');
+    });
+  };
+
+  const showResult = (headline, sub, scores) => {
+    pgResult.classList.add('visible');
+    resultHeadline.textContent = headline;
+    resultSub.textContent = sub;
+    resultScores.innerHTML = Object.entries(scores)
+      .map(([u, s]) => `<div class="result-score-item">${u}<span>${s}</span></div>`)
+      .join('');
+  };
+
+  const resetUI = () => {
+    inMatch = false; locked = false; players = []; myUsername = ''; aiGenerated = false;
+    pgMeta.classList.remove('visible');
+    progressWrap.classList.remove('visible');
+    questionArea.classList.remove('visible');
+    pgResult.classList.remove('visible');
+    pgGenerating.classList.remove('visible');
+    optionsGrid.innerHTML = '';
+    aiBadge.style.display = 'none';
+    setFeedback('');
+    progressBar.style.width = '0%';
+  };
+
+  /* ── Join ─────────────────────────────────────────────────── */
+  btnJoin.addEventListener('click', () => {
+    resetUI();
+    setStatus('Looking for an opponent...', 'waiting');
+    btnJoin.disabled = true;
+    socket.emit('join_playground');
+  });
+
+  /* ── Socket events ────────────────────────────────────────── */
+  socket.on('queue_status', ({ message }) => {
+    // Show the generating loader when AI is preparing questions
+    if (message && message.includes('Generating questions with AI')) {
+      setStatus('Opponent found!', 'waiting');
+      pgGenerating.classList.add('visible');
+    } else {
+      setStatus(message || 'Waiting...', 'waiting');
+    }
+  });
+
+  socket.on('match_found', (payload) => {
+    inMatch = true; locked = false;
+    players = payload.players;
+    totalRounds = payload.total_rounds;
+    aiGenerated = payload.ai_generated || false;
+
+    pgGenerating.classList.remove('visible');
+    pgMeta.classList.add('visible');
+    progressWrap.classList.add('visible');
+    pgResult.classList.remove('visible');
+    btnJoin.disabled = true;
+
+    if (aiGenerated) aiBadge.style.display = 'inline-flex';
+
+    updateMeta(payload.round, payload.scores);
+    questionText.textContent = payload.question;
+    buildOptions(payload.options);
+    questionArea.classList.add('visible');
+
+    setStatus(`${players[0]} vs ${players[1]} — Round 1`, 'active');
+    setFeedback('');
+  });
+
+  socket.on('answer_result', ({ message, chosen }) => {
+    if (chosen) {
+      document.querySelectorAll('.option-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        if (btn.dataset.label === chosen) {
+          btn.classList.add('wrong');
+          setTimeout(() => btn.classList.remove('wrong'), 700);
+        }
+      });
+    }
+    setFeedback(message || 'Wrong — try again.', 'error');
+  });
+
+  socket.on('round_ended', (payload) => {
+    locked = true;
+    lockOptions();
+    highlightResult(payload.correct_label);
+    updateMeta(payload.round, payload.scores);
+    setFeedback(
+      `${payload.round_winner} answered correctly! (${payload.correct_label}: ${payload.correct_answer})`,
+      'success'
+    );
+    setStatus(`Round ${payload.round} won by ${payload.round_winner}`, 'active');
+  });
+
+  socket.on('next_round', (payload) => {
+    locked = false;
+    updateMeta(payload.round, payload.scores);
+    questionText.textContent = payload.question;
+    buildOptions(payload.options);
+    setFeedback('');
+    setStatus(`Round ${payload.round} of ${payload.total_rounds}`, 'active');
+  });
+
+  socket.on('match_ended', (payload) => {
+    resetUI();
+    btnJoin.disabled = false;
+
+    let headline, sub;
+    if (payload.reason === 'opponent_disconnected') {
+      headline = `${payload.winner} wins — opponent disconnected`;
+      sub = `+${payload.disconnect_bonus} bonus points awarded.`;
+    } else if (payload.draw) {
+      headline = "It's a draw!";
+      sub = 'Points awarded for rounds won.';
+    } else {
+      headline = `${payload.winner} wins the match!`;
+      sub = 'Points have been added to your account.';
+    }
+
+    setStatus('Match over. Join again to play.', '');
+    showResult(headline, sub, payload.scores);
+  });
+})();
+</script>
+
+{% endblock content %}
