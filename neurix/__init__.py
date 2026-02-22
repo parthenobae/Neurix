@@ -30,12 +30,14 @@ def create_app(config_class=Config):
     from neurix.posts.routes import posts
     from neurix.main.routes import main
     from neurix.playground import playground
-    from neurix.learn import learn          # ← new
+    from neurix.learn import learn
+    from neurix.datalab import datalab          # ← new
 
     app.register_blueprint(playground)
     app.register_blueprint(users)
     app.register_blueprint(posts)
     app.register_blueprint(main)
-    app.register_blueprint(learn)           # ← new
+    app.register_blueprint(learn)
+    app.register_blueprint(datalab)             # ← new
 
     return app
