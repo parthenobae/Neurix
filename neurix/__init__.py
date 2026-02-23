@@ -39,5 +39,5 @@ def create_app(config_class=Config):
     app.register_blueprint(main)
     app.register_blueprint(learn)
     app.register_blueprint(datalab)             # ← new
-
+    #67
     return app
