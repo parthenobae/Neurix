@@ -1,0 +1,208 @@
+{% extends "layout.html" %}
+
+{% block right_navbar %}
+<span class="nav-item nav-link" style="color:#b84c27; font-weight:600;">
+  ⚡ {{ current_user.points }} pts
+</span>
+{% endblock right_navbar %}
+
+{% block content %}
+<style>
+.quiz-back { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; color:#6b7280; text-decoration:none; margin-bottom:1.2rem; }
+.quiz-back:hover { color:#1a2535; text-decoration:none; }
+
+.quiz-hero { margin-bottom:1.5rem; }
+.quiz-hero h2 { font-family:'DM Serif Display',serif; font-size:1.75rem; color:#1a2535; margin-bottom:.2rem; }
+.quiz-hero p { color:#6b7280; font-size:.9rem; }
+
+.section-card { background:#fff; border:1.5px solid #e5e0d8; border-radius:12px; padding:1.4rem 1.6rem; margin-bottom:1.4rem; box-shadow:0 2px 8px rgba(26,37,53,.05); }
+.section-card h5 { font-family:'DM Serif Display',serif; color:#1a2535; margin-bottom:1rem; }
+
+.q-block { margin-bottom:1.2rem; padding-bottom:1.2rem; border-bottom:1px solid #f0ede8; }
+.q-block:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+.q-num { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#9a8f85; margin-bottom:.3rem; }
+.q-text { font-size:.92rem; font-weight:500; color:#1a2535; margin-bottom:.7rem; }
+.q-opts { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+.q-opt {
+  background:#f7f5f0; border:1.5px solid #e5e0d8; border-radius:8px;
+  padding:.55rem .8rem; cursor:pointer; display:flex; align-items:center; gap:.55rem;
+  font-size:.83rem; color:#374151; transition:all .12s;
+}
+.q-opt:hover { border-color:#1a2535; background:#f0ede8; }
+.q-opt.selected { border-color:#1a2535; background:#1a2535; color:#fff; }
+.q-opt.correct  { border-color:#27a35a!important; background:#eaf6ee!important; color:#1a5c37!important; }
+.q-opt.wrong    { border-color:#dc2626!important; background:#fef2f2!important; color:#991b1b!important; }
+.opt-label { width:22px; height:22px; border-radius:50%; border:1.5px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; flex-shrink:0; background:rgba(255,255,255,.15); }
+.q-opt:not(.selected) .opt-label { background:#e5e0d8; border-color:#c8c2ba; color:#6b7280; }
+
+/* IDE */
+.ide-card { background:#fff; border:1.5px solid #e5e0d8; border-radius:12px; overflow:hidden; }
+.ide-topbar { background:#1e2b3c; padding:.6rem 1rem; display:flex; align-items:center; justify-content:space-between; }
+.ide-topbar-left { display:flex; align-items:center; gap:.6rem; }
+.ide-dot { width:10px; height:10px; border-radius:50%; }
+.ide-lang-pill { font-size:.7rem; font-weight:700; letter-spacing:.05em; background:#2e3f58; color:#94a3b8; padding:.2rem .6rem; border-radius:4px; }
+.ide-challenge { background:#f7f5f0; border-bottom:1px solid #e5e0d8; padding:.85rem 1.1rem; font-size:.84rem; color:#4b5563; }
+#quiz-code-editor { width:100%; min-height:160px; background:#1e2b3c; color:#e2e8f0; border:none; outline:none; resize:vertical; font-family:'Courier New',monospace; font-size:.83rem; line-height:1.6; padding:1rem 1.2rem; tab-size:4; }
+.ide-footer { padding:.65rem 1rem; display:flex; align-items:center; gap:.7rem; border-top:1px solid #e5e0d8; background:#faf8f4; }
+.btn-run { background:#27a35a; color:#fff; border:none; padding:.4rem 1rem; border-radius:7px; font-size:.82rem; font-weight:600; cursor:pointer; }
+.btn-run:hover { background:#1e8048; }
+.btn-run:disabled { opacity:.6; cursor:not-allowed; }
+.ide-output { background:#111827; color:#d1fae5; font-family:'Courier New',monospace; font-size:.79rem; padding:.8rem 1.1rem; border-top:1px solid #2e3f58; min-height:50px; white-space:pre-wrap; display:none; }
+.ide-output.visible { display:block; }
+.ide-output.err { color:#fca5a5; }
+
+/* Submit */
+.quiz-submit-bar { background:#f7f5f0; border:1.5px solid #e5e0d8; border-radius:12px; padding:1.1rem 1.4rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.btn-submit-quiz { background:#b84c27; color:#fff; border:none; padding:.5rem 1.5rem; border-radius:9px; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .15s; }
+.btn-submit-quiz:hover { background:#963d20; }
+.btn-submit-quiz:disabled { opacity:.5; cursor:not-allowed; }
+.quiz-result { border-radius:10px; padding:.85rem 1.1rem; font-size:.88rem; margin-top:1rem; display:none; }
+.quiz-result.visible { display:block; }
+.quiz-result.pass { background:#eaf6ee; border:1.5px solid #a7e3be; color:#1a5c37; }
+.quiz-result.fail { background:#fef2f2; border:1.5px solid #fca5a5; color:#991b1b; }
+
+@media(max-width:576px) { .q-opts { grid-template-columns:1fr; } }
+</style>
+
+<a href="{{ url_for('learn.dashboard') }}" class="quiz-back">← Back to Learning Path</a>
+
+<div class="quiz-hero">
+  <h2>Unlock {{ level_meta.label }}</h2>
+  <p>Pass <strong>3 of 5 MCQ</strong> and the <strong>code challenge</strong> to unlock this level and earn <strong>+5 points</strong>.</p>
+</div>
+
+<!-- MCQ Section -->
+<div class="section-card">
+  <h5>Part 1 — Multiple Choice ({{ quiz.mcq | length }} questions)</h5>
+  {% for q in quiz.mcq %}
+  <div class="q-block">
+    <div class="q-num">Question {{ loop.index }}</div>
+    <div class="q-text">{{ q.text }}</div>
+    <div class="q-opts">
+      {% for opt in q.options %}
+      <button class="q-opt" data-qid="{{ q.id }}" data-label="{{ opt.label }}"
+              onclick="selectOpt(this)">
+        <span class="opt-label">{{ opt.label }}</span>
+        {{ opt.text }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Code Challenge -->
+<div class="section-card">
+  <h5>Part 2 — Code Challenge</h5>
+  <div class="ide-card">
+    <div class="ide-topbar">
+      <div class="ide-topbar-left">
+        <div class="ide-dot" style="background:#ff5f57;"></div>
+        <div class="ide-dot" style="background:#febc2e;"></div>
+        <div class="ide-dot" style="background:#28c840;"></div>
+      </div>
+      <span class="ide-lang-pill">{{ quiz.code.language | upper }}</span>
+    </div>
+    <div class="ide-challenge">{{ quiz.code.description }}</div>
+    <textarea id="quiz-code-editor" spellcheck="false">{{ quiz.code.starter }}</textarea>
+    <div class="ide-footer">
+      <button class="btn-run" id="run-btn" onclick="runQuizCode()">▶ Test Code</button>
+      <span id="run-status" style="font-size:.8rem; color:#6b7280;"></span>
+    </div>
+    <div class="ide-output" id="quiz-output"></div>
+  </div>
+</div>
+
+<!-- Submit bar -->
+<div class="quiz-submit-bar">
+  <div style="font-size:.85rem; color:#6b7280;">
+    Answer all questions and test your code before submitting.
+  </div>
+  <button class="btn-submit-quiz" id="submit-btn" onclick="submitQuiz()">
+    Submit Quiz →
+  </button>
+</div>
+<div class="quiz-result" id="quiz-result"></div>
+
+<script>
+const LEVEL = "{{ level }}";
+const mcqAnswers = {};
+
+function selectOpt(btn) {
+  const qid = btn.dataset.qid;
+  document.querySelectorAll(`.q-opt[data-qid="${qid}"]`).forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  mcqAnswers[qid] = btn.dataset.label;
+}
+
+async function runQuizCode() {
+  const code = document.getElementById('quiz-code-editor').value;
+  const btn  = document.getElementById('run-btn');
+  const out  = document.getElementById('quiz-output');
+  const status = document.getElementById('run-status');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+  out.className = 'ide-output';
+  status.textContent = '';
+
+  try {
+    const resp = await fetch(`/learn/unlock/${LEVEL}/run_code`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code})
+    });
+    const data = await resp.json();
+    const text = (data.stdout || '') + (data.stderr ? '\n⚠ ' + data.stderr : '');
+    out.textContent = text || '(no output)';
+    out.className = 'ide-output visible' + (data.stderr && !data.stdout ? ' err' : '');
+    status.textContent = data.error ? '✗ Error in code' : '✓ Code ran successfully';
+    status.style.color = data.error ? '#dc2626' : '#27a35a';
+  } catch(e) {
+    status.textContent = 'Network error';
+    status.style.color = '#dc2626';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Test Code';
+}
+
+async function submitQuiz() {
+  const code = document.getElementById('quiz-code-editor').value;
+  const btn  = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  const resp = await fetch(`/learn/unlock/${LEVEL}/submit`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mcq_answers: mcqAnswers, code})
+  });
+  const data = await resp.json();
+
+  const resultEl = document.getElementById('quiz-result');
+  resultEl.className = 'quiz-result visible ' + (data.passed ? 'pass' : 'fail');
+  resultEl.innerHTML = data.passed
+    ? `🎉 <strong>${data.message}</strong><br><small>MCQ: ${data.mcq_score}/5 &nbsp;|&nbsp; Code: ✓</small>`
+    : `✗ <strong>Not quite.</strong> ${data.message}<br><small>Review the Beginner modules and try again.</small>`;
+
+  resultEl.scrollIntoView({behavior:'smooth'});
+
+  if (data.passed) {
+    setTimeout(() => { window.location.href = '/learn'; }, 2500);
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Submit Quiz →';
+  }
+}
+
+document.getElementById('quiz-code-editor').addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const ta = e.target, s = ta.selectionStart;
+    ta.value = ta.value.substring(0, s) + '    ' + ta.value.substring(ta.selectionEnd);
+    ta.selectionStart = ta.selectionEnd = s + 4;
+  }
+});
+</script>
+{% endblock content %}

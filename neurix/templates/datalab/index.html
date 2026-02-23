@@ -1,0 +1,645 @@
+{% extends "layout.html" %}
+
+{% block right_navbar %}
+<span class="nav-item nav-link" style="color:#b84c27; font-weight:600;">
+  ⚡ {{ current_user.points }} pts
+</span>
+{% endblock right_navbar %}
+
+{% block content %}
+<style>
+/* ── Reset / base ───────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── Hero ───────────────────────────────────────────── */
+.lab-hero { margin-bottom: 1.8rem; }
+.lab-hero h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.9rem; color: #1a2535; margin-bottom: .2rem;
+}
+.lab-hero p { color: #6b7280; font-size: .9rem; margin: 0; }
+
+/* ── Upload zone ────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed #d5cfc6; border-radius: 14px;
+  background: #faf8f4; text-align: center;
+  padding: 2.5rem 1.5rem; cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: #b84c27; background: #fdf3ef;
+}
+.upload-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+}
+.upload-icon { font-size: 2.4rem; margin-bottom: .5rem; }
+.upload-zone h5 { color: #1a2535; font-family:'DM Serif Display',serif; margin-bottom: .2rem; }
+.upload-zone p { font-size: .82rem; color: #9a8f85; margin: 0; }
+.upload-note { font-size: .75rem; color: #b0a89f; margin-top: .5rem; }
+
+/* ── Cards ──────────────────────────────────────────── */
+.lab-card {
+  background: #fff; border: 1.5px solid #e5e0d8;
+  border-radius: 12px; margin-bottom: 1.4rem;
+  box-shadow: 0 2px 8px rgba(26,37,53,.05); overflow: hidden;
+}
+.lab-card-header {
+  padding: .85rem 1.3rem; border-bottom: 1px solid #f0ede8;
+  display: flex; align-items: center; gap: .6rem;
+}
+.lab-card-header h6 {
+  font-family:'DM Serif Display',serif; font-size: 1rem;
+  color: #1a2535; margin: 0;
+}
+.lab-card-body { padding: 1.1rem 1.3rem; }
+.card-icon { font-size: 1.1rem; }
+
+/* ── Summary grid ───────────────────────────────────── */
+.summary-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: .7rem;
+  margin-bottom: .9rem;
+}
+.stat-pill {
+  background: #f7f5f0; border-radius: 9px;
+  padding: .65rem .8rem; text-align: center;
+}
+.stat-pill .val {
+  font-size: 1.35rem; font-weight: 700;
+  color: #1a2535; font-family:'DM Serif Display',serif;
+  line-height: 1;
+}
+.stat-pill .lbl { font-size: .72rem; color: #9a8f85; margin-top: 3px; }
+.stat-pill.warn .val { color: #b84c27; }
+
+/* ── Tag lists ──────────────────────────────────────── */
+.col-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+.col-tag {
+  font-size: .7rem; padding: .18rem .55rem; border-radius: 20px; font-weight: 500;
+}
+.tag-num { background: #eef2fb; color: #2563eb; }
+.tag-cat { background: #fdf0ea; color: #b84c27; }
+
+/* ── Data preview table ──────────────────────────────── */
+.preview-wrap { overflow-x: auto; }
+.preview-table {
+  width: 100%; font-size: .76rem;
+  border-collapse: collapse;
+}
+.preview-table th {
+  background: #1a2535; color: #e2e8f0;
+  padding: .4rem .65rem; text-align: left; white-space: nowrap;
+  font-weight: 600; letter-spacing: .02em;
+}
+.preview-table td {
+  padding: .35rem .65rem; border-bottom: 1px solid #f0ede8;
+  color: #374151; white-space: nowrap;
+}
+.preview-table tr:nth-child(even) td { background: #faf8f4; }
+.preview-table td.null-cell { color: #c8c2ba; font-style: italic; font-size: .7rem; }
+
+/* ── Chart images ───────────────────────────────────── */
+.chart-img {
+  width: 100%; border-radius: 8px;
+  border: 1px solid #f0ede8;
+}
+.chart-placeholder {
+  background: #faf8f4; border-radius: 8px;
+  height: 120px; display: flex; align-items: center;
+  justify-content: center; color: #c8c2ba; font-size: .82rem;
+}
+
+/* ── Train panel ────────────────────────────────────── */
+.train-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .85rem;
+  margin-bottom: 1rem;
+}
+.form-label-sm { font-size: .78rem; font-weight: 600; color: #4b5563; margin-bottom: .25rem; }
+.form-select-sm {
+  width: 100%; padding: .42rem .7rem; font-size: .83rem;
+  border: 1.5px solid #e5e0d8; border-radius: 8px;
+  background: #faf8f4; color: #1a2535; outline: none;
+  transition: border-color .15s;
+}
+.form-select-sm:focus { border-color: #1a2535; }
+
+.feature-check-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem;
+  max-height: 140px; overflow-y: auto;
+  background: #faf8f4; border-radius: 8px;
+  padding: .6rem .7rem; border: 1.5px solid #e5e0d8;
+}
+.feat-check { display: flex; align-items: center; gap: .35rem; cursor: pointer; }
+.feat-check input { accent-color: #1a2535; }
+.feat-check span { font-size: .74rem; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+
+.btn-train {
+  width: 100%; padding: .6rem; border: none; border-radius: 9px;
+  background: #1a2535; color: #fff;
+  font-size: .9rem; font-weight: 600; cursor: pointer;
+  transition: background .15s; letter-spacing: .02em;
+}
+.btn-train:hover { background: #2e3f58; }
+.btn-train:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ── Results ────────────────────────────────────────── */
+.results-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem;
+  margin-bottom: 1rem;
+}
+.metric-pill {
+  background: #f7f5f0; border-radius: 10px;
+  padding: .8rem; text-align: center;
+}
+.metric-pill .m-val {
+  font-size: 1.5rem; font-weight: 700;
+  font-family:'DM Serif Display',serif; color: #1a2535; line-height: 1;
+}
+.metric-pill .m-lbl { font-size: .7rem; color: #9a8f85; margin-top: 3px; }
+.metric-pill.highlight .m-val { color: #27a35a; }
+
+.results-charts {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+}
+
+/* ── Classification report table ────────────────────── */
+.cr-table { width: 100%; font-size: .74rem; border-collapse: collapse; margin-top: .5rem; }
+.cr-table th {
+  background: #1a2535; color: #e2e8f0;
+  padding: .35rem .55rem; text-align: center; font-weight: 600;
+}
+.cr-table td { padding: .3rem .55rem; border-bottom: 1px solid #f0ede8; text-align: center; }
+.cr-table tr:nth-child(even) td { background: #faf8f4; }
+.cr-table td:first-child { text-align: left; font-weight: 500; color: #1a2535; }
+
+/* ── Loading spinner ────────────────────────────────── */
+.spinner-wrap {
+  display: none; align-items: center; gap: .7rem;
+  padding: .8rem 0; color: #6b7280; font-size: .85rem;
+}
+.spinner-wrap.active { display: flex; }
+.spinner {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 3px solid #e5e0d8;
+  border-top-color: #b84c27;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Status / error ─────────────────────────────────── */
+.status-bar {
+  padding: .6rem .9rem; border-radius: 8px;
+  font-size: .82rem; margin-bottom: .75rem; display: none;
+}
+.status-bar.visible { display: block; }
+.status-bar.error  { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+.status-bar.info   { background: #eef2fb; color: #1e40af; border: 1px solid #bfdbfe; }
+.status-bar.success{ background: #eaf6ee; color: #1a5c37; border: 1px solid #a7e3be; }
+
+/* ── Section visibility ─────────────────────────────── */
+.hidden { display: none !important; }
+
+@media(max-width:576px) {
+  .summary-grid    { grid-template-columns: 1fr 1fr; }
+  .train-grid      { grid-template-columns: 1fr; }
+  .results-grid    { grid-template-columns: 1fr 1fr; }
+  .results-charts  { grid-template-columns: 1fr; }
+  .feature-check-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<!-- Hero -->
+<div class="lab-hero">
+  <h2>📊 Dataset Lab</h2>
+  <p>Upload a CSV, explore your data visually, then train an ML model — all in one place.</p>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar" id="status-bar"></div>
+
+<!-- ── Upload ───────────────────────────────────────────────────────────── -->
+<div class="lab-card" id="upload-card">
+  <div class="lab-card-header">
+    <span class="card-icon">📁</span>
+    <h6>Upload Dataset</h6>
+  </div>
+  <div class="lab-card-body">
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="csv-input" accept=".csv" onchange="handleFile(this.files[0])">
+      <div class="upload-icon">📂</div>
+      <h5>Drop your CSV here</h5>
+      <p>or click to browse</p>
+      <div class="upload-note">Max 50,000 rows · 50 columns · CSV only</div>
+    </div>
+    <div class="spinner-wrap" id="upload-spinner">
+      <div class="spinner"></div> Analysing dataset…
+    </div>
+  </div>
+</div>
+
+<!-- ── Summary ──────────────────────────────────────────────────────────── -->
+<div class="lab-card hidden" id="summary-card">
+  <div class="lab-card-header">
+    <span class="card-icon">📋</span>
+    <h6>Dataset Summary</h6>
+    <button onclick="resetAll()"
+            style="margin-left:auto;background:none;border:1px solid #e5e0d8;
+                   padding:.22rem .7rem;border-radius:6px;font-size:.75rem;
+                   color:#6b7280;cursor:pointer;">↑ Upload new</button>
+  </div>
+  <div class="lab-card-body">
+    <div class="summary-grid">
+      <div class="stat-pill">
+        <div class="val" id="stat-rows">—</div><div class="lbl">Rows</div>
+      </div>
+      <div class="stat-pill">
+        <div class="val" id="stat-cols">—</div><div class="lbl">Columns</div>
+      </div>
+      <div class="stat-pill">
+        <div class="val" id="stat-num">—</div><div class="lbl">Numeric</div>
+      </div>
+      <div class="stat-pill warn">
+        <div class="val" id="stat-miss">—</div><div class="lbl">Missing</div>
+      </div>
+    </div>
+
+    <div style="font-size:.78rem;font-weight:600;color:#6b7280;margin-bottom:.3rem;">Numeric columns</div>
+    <div class="col-tags" id="num-tags"></div>
+    <div style="font-size:.78rem;font-weight:600;color:#6b7280;margin:.6rem 0 .3rem;">Categorical columns</div>
+    <div class="col-tags" id="cat-tags"></div>
+  </div>
+</div>
+
+<!-- ── Data Preview ──────────────────────────────────────────────────────── -->
+<div class="lab-card hidden" id="preview-card">
+  <div class="lab-card-header">
+    <span class="card-icon">🔍</span>
+    <h6>Data Preview <span style="font-size:.75rem;color:#9a8f85;font-weight:400;">(first 8 rows)</span></h6>
+  </div>
+  <div class="lab-card-body">
+    <div class="preview-wrap">
+      <table class="preview-table" id="preview-table"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDA Charts ────────────────────────────────────────────────────────── -->
+<div class="lab-card hidden" id="eda-card">
+  <div class="lab-card-header">
+    <span class="card-icon">📈</span>
+    <h6>Exploratory Analysis</h6>
+  </div>
+  <div class="lab-card-body">
+    <div style="margin-bottom:1.1rem;">
+      <div style="font-size:.82rem;font-weight:600;color:#4b5563;margin-bottom:.5rem;">Correlation Heatmap</div>
+      <div id="corr-wrap">
+        <div class="chart-placeholder">Needs 2+ numeric columns</div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.82rem;font-weight:600;color:#4b5563;margin-bottom:.5rem;">Feature Distributions</div>
+      <div id="dist-wrap">
+        <div class="chart-placeholder">No numeric columns found</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Train ─────────────────────────────────────────────────────────────── -->
+<div class="lab-card hidden" id="train-card">
+  <div class="lab-card-header">
+    <span class="card-icon">🤖</span>
+    <h6>Train a Model</h6>
+  </div>
+  <div class="lab-card-body">
+    <div class="train-grid">
+      <div>
+        <div class="form-label-sm">Target column (label to predict)</div>
+        <select class="form-select-sm" id="target-select">
+          <option value="">— select —</option>
+        </select>
+      </div>
+      <div>
+        <div class="form-label-sm">Model</div>
+        <select class="form-select-sm" id="model-select">
+          <option value="auto">Auto-detect</option>
+          <optgroup label="Classification">
+            <option value="logistic">Logistic Regression</option>
+            <option value="random_forest_clf">Random Forest</option>
+            <option value="knn">K-Nearest Neighbours</option>
+            <option value="svm">Support Vector Machine</option>
+          </optgroup>
+          <optgroup label="Regression">
+            <option value="linear">Linear Regression</option>
+            <option value="random_forest_reg">Random Forest (Regressor)</option>
+            <option value="ridge">Ridge Regression</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-label-sm" style="margin-bottom:.3rem;">
+      Feature columns <span style="color:#9a8f85;font-weight:400;">(leave all unchecked = use all numeric)</span>
+    </div>
+    <div class="feature-check-grid" id="feature-grid"></div>
+
+    <div style="margin-top:1rem;">
+      <div class="spinner-wrap" id="train-spinner">
+        <div class="spinner"></div> Training model… this may take a few seconds
+      </div>
+      <button class="btn-train" id="train-btn" onclick="trainModel()">
+        ▶ Train Model
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Results ───────────────────────────────────────────────────────────── -->
+<div class="lab-card hidden" id="results-card">
+  <div class="lab-card-header">
+    <span class="card-icon">✅</span>
+    <h6>Results — <span id="model-name-label" style="color:#b84c27;"></span></h6>
+  </div>
+  <div class="lab-card-body">
+    <div id="metrics-section"></div>
+    <div class="results-charts" id="charts-section"></div>
+
+    <div id="cr-section" class="hidden" style="margin-top:1rem;">
+      <div style="font-size:.82rem;font-weight:600;color:#4b5563;margin-bottom:.4rem;">Classification Report</div>
+      <div class="preview-wrap">
+        <table class="cr-table" id="cr-table"></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── State ───────────────────────────────────────────── */
+let csvB64     = null;
+let summaryData = null;
+
+/* ── Drag-and-drop ───────────────────────────────────── */
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+/* ── Upload & EDA ────────────────────────────────────── */
+async function handleFile(file) {
+  if (!file || !file.name.endsWith('.csv')) {
+    showStatus('Please upload a .csv file.', 'error'); return;
+  }
+  showStatus('', '');
+  setSpinner('upload-spinner', true);
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const resp = await fetch('/datalab/upload', { method: 'POST', body: fd });
+    const data = await resp.json();
+
+    if (data.error) { showStatus(data.error, 'error'); setSpinner('upload-spinner', false); return; }
+
+    csvB64      = data.csv_b64;
+    summaryData = data.summary;
+
+    renderSummary(data.summary);
+    renderPreview(data.summary);
+    renderEDA(data.corr_img, data.dist_img);
+    renderTrainPanel(data.summary);
+
+    show('summary-card');
+    show('preview-card');
+    show('eda-card');
+    show('train-card');
+    hide('results-card');
+
+    setSpinner('upload-spinner', false);
+    showStatus(`✓ Loaded "${file.name}" — ${data.summary.rows.toLocaleString()} rows, ${data.summary.cols} columns.`, 'success');
+  } catch(e) {
+    showStatus('Upload failed — please try again.', 'error');
+    setSpinner('upload-spinner', false);
+  }
+}
+
+function renderSummary(s) {
+  document.getElementById('stat-rows').textContent = s.rows.toLocaleString();
+  document.getElementById('stat-cols').textContent = s.cols;
+  document.getElementById('stat-num').textContent  = s.num_cols.length;
+  document.getElementById('stat-miss').textContent = s.missing.toLocaleString();
+
+  const numWrap = document.getElementById('num-tags');
+  const catWrap = document.getElementById('cat-tags');
+  numWrap.innerHTML = s.num_cols.map(c => `<span class="col-tag tag-num">${c}</span>`).join('') || '<span style="color:#c8c2ba;font-size:.78rem;">none</span>';
+  catWrap.innerHTML = s.cat_cols.map(c => `<span class="col-tag tag-cat">${c}</span>`).join('') || '<span style="color:#c8c2ba;font-size:.78rem;">none</span>';
+}
+
+function renderPreview(s) {
+  const tbl = document.getElementById('preview-table');
+  const cols = s.columns;
+  tbl.innerHTML = `
+    <thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+    <tbody>${s.head.map(row =>
+      `<tr>${cols.map(c => {
+        const v = row[c];
+        return v === '' || v === null || v === undefined
+          ? `<td class="null-cell">null</td>`
+          : `<td>${v}</td>`;
+      }).join('')}</tr>`
+    ).join('')}</tbody>`;
+}
+
+function renderEDA(corrImg, distImg) {
+  const corrWrap = document.getElementById('corr-wrap');
+  const distWrap = document.getElementById('dist-wrap');
+  corrWrap.innerHTML = corrImg
+    ? `<img class="chart-img" src="data:image/png;base64,${corrImg}">`
+    : `<div class="chart-placeholder">Needs 2+ numeric columns</div>`;
+  distWrap.innerHTML = distImg
+    ? `<img class="chart-img" src="data:image/png;base64,${distImg}">`
+    : `<div class="chart-placeholder">No numeric columns found</div>`;
+}
+
+function renderTrainPanel(s) {
+  // Target select — all columns
+  const tgt = document.getElementById('target-select');
+  tgt.innerHTML = '<option value="">— select —</option>' +
+    s.columns.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // Feature checkboxes — numeric cols only
+  const grid = document.getElementById('feature-grid');
+  grid.innerHTML = s.num_cols.map(c => `
+    <label class="feat-check">
+      <input type="checkbox" value="${c}" class="feat-cb">
+      <span title="${c}">${c}</span>
+    </label>`).join('');
+}
+
+/* ── Training ────────────────────────────────────────── */
+async function trainModel() {
+  const target = document.getElementById('target-select').value;
+  const model  = document.getElementById('model-select').value;
+  if (!target) { showStatus('Please select a target column.', 'error'); return; }
+
+  const features = [...document.querySelectorAll('.feat-cb:checked')].map(cb => cb.value);
+
+  showStatus('', '');
+  setSpinner('train-spinner', true);
+  document.getElementById('train-btn').disabled = true;
+  hide('results-card');
+
+  try {
+    const resp = await fetch('/datalab/train', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ csv_b64: csvB64, target, model, features })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      showStatus('Training error: ' + data.error.split('\n')[0], 'error');
+    } else {
+      renderResults(data);
+      show('results-card');
+      document.getElementById('results-card').scrollIntoView({behavior:'smooth', block:'start'});
+      showStatus(`✓ ${data.model_name} trained on ${data.n_train} rows, evaluated on ${data.n_test} rows.`, 'success');
+    }
+  } catch(e) {
+    showStatus('Training request failed — please try again.', 'error');
+  }
+
+  setSpinner('train-spinner', false);
+  document.getElementById('train-btn').disabled = false;
+}
+
+/* ── Results rendering ───────────────────────────────── */
+function renderResults(d) {
+  document.getElementById('model-name-label').textContent = d.model_name;
+
+  const metricsEl = document.getElementById('metrics-section');
+  const chartsEl  = document.getElementById('charts-section');
+  const crEl      = document.getElementById('cr-section');
+
+  if (d.task === 'classification') {
+    metricsEl.innerHTML = `
+      <div class="results-grid">
+        <div class="metric-pill highlight">
+          <div class="m-val">${(d.accuracy * 100).toFixed(1)}%</div>
+          <div class="m-lbl">Accuracy</div>
+        </div>
+        <div class="metric-pill">
+          <div class="m-val">${d.n_train.toLocaleString()}</div>
+          <div class="m-lbl">Train samples</div>
+        </div>
+        <div class="metric-pill">
+          <div class="m-val">${d.n_test.toLocaleString()}</div>
+          <div class="m-lbl">Test samples</div>
+        </div>
+      </div>`;
+
+    chartsEl.innerHTML = '';
+    if (d.confusion_matrix_img) {
+      chartsEl.innerHTML += `<div><div style="font-size:.8rem;font-weight:600;color:#4b5563;margin-bottom:.4rem;">Confusion Matrix</div><img class="chart-img" src="data:image/png;base64,${d.confusion_matrix_img}"></div>`;
+    }
+    if (d.importance_img) {
+      chartsEl.innerHTML += `<div><div style="font-size:.8rem;font-weight:600;color:#4b5563;margin-bottom:.4rem;">Feature Importance</div><img class="chart-img" src="data:image/png;base64,${d.importance_img}"></div>`;
+    }
+
+    // Classification report
+    if (d.classification_report) {
+      renderCR(d.classification_report);
+      show('cr-section');
+    }
+
+  } else {
+    // Regression
+    metricsEl.innerHTML = `
+      <div class="results-grid">
+        <div class="metric-pill highlight">
+          <div class="m-val">${d.r2.toFixed(3)}</div>
+          <div class="m-lbl">R² Score</div>
+        </div>
+        <div class="metric-pill">
+          <div class="m-val">${d.rmse.toFixed(3)}</div>
+          <div class="m-lbl">RMSE</div>
+        </div>
+        <div class="metric-pill">
+          <div class="m-val">${d.mse.toFixed(3)}</div>
+          <div class="m-lbl">MSE</div>
+        </div>
+      </div>`;
+
+    chartsEl.innerHTML = '';
+    if (d.actual_vs_pred_img) {
+      chartsEl.innerHTML += `<div><div style="font-size:.8rem;font-weight:600;color:#4b5563;margin-bottom:.4rem;">Actual vs Predicted</div><img class="chart-img" src="data:image/png;base64,${d.actual_vs_pred_img}"></div>`;
+    }
+    if (d.importance_img) {
+      chartsEl.innerHTML += `<div><div style="font-size:.8rem;font-weight:600;color:#4b5563;margin-bottom:.4rem;">Feature Importance</div><img class="chart-img" src="data:image/png;base64,${d.importance_img}"></div>`;
+    }
+
+    hide('cr-section');
+  }
+}
+
+function renderCR(cr) {
+  const skipKeys = new Set(['accuracy', 'macro avg', 'weighted avg']);
+  const classKeys = Object.keys(cr).filter(k => !skipKeys.has(k));
+  const tbl = document.getElementById('cr-table');
+
+  tbl.innerHTML = `
+    <thead>
+      <tr>
+        <th>Class</th>
+        <th>Precision</th>
+        <th>Recall</th>
+        <th>F1-score</th>
+        <th>Support</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${classKeys.map(k => `
+        <tr>
+          <td>${k}</td>
+          <td>${cr[k].precision.toFixed(3)}</td>
+          <td>${cr[k].recall.toFixed(3)}</td>
+          <td>${cr[k]['f1-score'].toFixed(3)}</td>
+          <td>${cr[k].support}</td>
+        </tr>`).join('')}
+      ${cr['macro avg'] ? `
+        <tr style="font-weight:600;">
+          <td>macro avg</td>
+          <td>${cr['macro avg'].precision.toFixed(3)}</td>
+          <td>${cr['macro avg'].recall.toFixed(3)}</td>
+          <td>${cr['macro avg']['f1-score'].toFixed(3)}</td>
+          <td>${cr['macro avg'].support}</td>
+        </tr>` : ''}
+    </tbody>`;
+}
+
+/* ── Utility ─────────────────────────────────────────── */
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function setSpinner(id, on) { document.getElementById(id).classList.toggle('active', on); }
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status-bar');
+  if (!msg) { el.classList.remove('visible'); return; }
+  el.className = `status-bar visible ${type}`;
+  el.textContent = msg;
+}
+
+function resetAll() {
+  csvB64 = null; summaryData = null;
+  ['summary-card','preview-card','eda-card','train-card','results-card'].forEach(hide);
+  document.getElementById('csv-input').value = '';
+  showStatus('', '');
+}
+</script>
+
+{% endblock content %}

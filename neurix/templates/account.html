@@ -1,58 +1,531 @@
 {% extends "layout.html" %}
-{% block content %}
-    <div class="content-section">
-      <div class="media">
-        <img class="rounded-circle account-img" src="{{ image_file }}">
-        <div class="media-body">
-          <h2 class="account-heading">{{ current_user.username }}</h2>
-          <p class="text-secondary">{{ current_user.email }}</p>
-          <p class="text-secondary mb-0">Playground Points: {{ current_user.points }}</p>
-        </div>
-      </div>
-        <form method="POST" action="" enctype="multipart/form-data">
-            {{ form.hidden_tag() }}
-            <fieldset class="form-group">
-                <legend class="border-bottom mb-4">Account Info</legend>
-                <div class="form-group">
-                    {{ form.username.label(class="form-control-label") }}
 
-                    {% if form.username.errors %}
-                        {{ form.username(class="form-control form-control-lg is-invalid") }}
-                        <div class="invalid-feedback">
-                            {% for error in form.username.errors %}
-                                <span>{{ error }}</span>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        {{ form.username(class="form-control form-control-lg") }}
-                    {% endif %}
-                </div>
-                <div class="form-group">
-                    {{ form.email.label(class="form-control-label") }}
-                    {% if form.email.errors %}
-                        {{ form.email(class="form-control form-control-lg is-invalid") }}
-                        <div class="invalid-feedback">
-                            {% for error in form.email.errors %}
-                                <span>{{ error }}</span>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        {{ form.email(class="form-control form-control-lg") }}
-                    {% endif %}
-                </div>
-                <div class="form-group">
-                    {{ form.picture.label() }}
-                    {{ form.picture(class="form-control-file") }}
-                    {% if form.picture.errors %}
-                        {% for error in form.picture.errors %}
-                            <span class="text-danger">{{ error }}</span></br>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-            </fieldset>
-            <div class="form-group">
-                {{ form.submit(class="btn btn-outline-info") }}
-            </div>
-        </form>
+{# Full-width — no sidebar #}
+{% block content_col_class %}col-12{% endblock %}
+{% block sidebar %}{% endblock %}
+
+{% block content %}
+<style>
+/* ── Layout grid ─────────────────────────────────── */
+.acct-grid {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 1.2rem;
+  align-items: start;
+}
+
+/* ── Profile sidebar ─────────────────────────────── */
+.profile-sidebar {
+  background: #fff;
+  border: 1.5px solid #e5e0d8;
+  border-radius: 14px;
+  padding: 1.5rem 1.1rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(26,37,53,.06);
+  position: sticky;
+  top: 80px;
+}
+.avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: .85rem;
+}
+.avatar-img {
+  width: 86px; height: 86px;
+  border-radius: 50%;
+  border: 3px solid #e5e0d8;
+  object-fit: cover;
+}
+.online-dot {
+  position: absolute; bottom: 3px; right: 3px;
+  width: 18px; height: 18px;
+  background: #27a35a;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+}
+.profile-name {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.1rem; color: #1a2535; margin-bottom: .1rem;
+}
+.profile-email { font-size: .73rem; color: #9a8f85; margin-bottom: 1rem; }
+
+.pts-box {
+  background: #1a2535;
+  border-radius: 10px; padding: .55rem .8rem;
+  margin-bottom: 1rem;
+}
+.pts-val {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.7rem; color: #f59e0b; line-height: 1;
+}
+.pts-lbl { font-size: .66rem; color: #64748b; margin-top: 2px; }
+
+.sidebar-divider { border: none; border-top: 1px solid #f0ede8; margin: .85rem 0; }
+
+.s-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .22rem 0; font-size: .77rem;
+}
+.s-row .s-key { color: #6b7280; }
+.s-row .s-val { font-weight: 700; color: #1a2535; }
+.s-row .s-val.accent { color: #b84c27; }
+.s-row .s-val.green  { color: #27a35a; }
+
+/* ── Cards ───────────────────────────────────────── */
+.acct-main { display: flex; flex-direction: column; gap: 1.2rem; }
+
+.ac {
+  background: #fff;
+  border: 1.5px solid #e5e0d8;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(26,37,53,.05);
+}
+.ac-hd {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .8rem 1.25rem;
+  border-bottom: 1px solid #f0ede8;
+  font-family: 'DM Serif Display', serif;
+  font-size: .97rem; color: #1a2535;
+}
+.ac-hd-sub {
+  font-family: inherit;
+  font-size: .72rem; color: #9a8f85; font-weight: 400; margin-left: .3rem;
+}
+.ac-bd { padding: 1.1rem 1.25rem; }
+
+/* ── Streak pills ────────────────────────────────── */
+.streak-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem;
+  margin-bottom: 1.1rem;
+}
+.st-pill {
+  background: #f7f5f0; border-radius: 10px;
+  padding: .65rem .5rem; text-align: center;
+}
+.st-val {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.5rem; color: #1a2535; line-height: 1;
+  display: block;
+}
+.st-val.fire  { color: #b84c27; }
+.st-val.green { color: #27a35a; }
+.st-lbl { font-size: .64rem; color: #9a8f85; margin-top: 3px; display: block; }
+
+/* ── Heatmap ─────────────────────────────────────── */
+.hm-months {
+  display: flex; gap: 2px;
+  font-size: .62rem; color: #9a8f85;
+  margin-bottom: 4px;
+  padding-left: 18px; /* offset for day labels */
+}
+.hm-months span { min-width: 13px; flex: 1; }
+
+.hm-body { display: flex; gap: 3px; align-items: flex-start; overflow-x: auto; }
+
+.hm-day-labels {
+  display: flex; flex-direction: column; gap: 3px;
+  padding-top: 0;
+  margin-right: 2px;
+}
+.hm-day-label {
+  height: 13px; font-size: .58rem; color: #9a8f85;
+  line-height: 13px; white-space: nowrap;
+  width: 14px; text-align: right;
+}
+
+.hm-grid { display: flex; gap: 2px; }
+.hm-col  { display: flex; flex-direction: column; gap: 2px; }
+.hm-cell {
+  width: 13px; height: 13px;
+  border-radius: 2.5px;
+  flex-shrink: 0;
+  cursor: default;
+  transition: transform .1s, opacity .1s;
+}
+.hm-cell:hover  { transform: scale(1.4); z-index: 5; }
+.hm-cell.empty  { opacity: 0; pointer-events: none; }
+.hm-cell[data-lv="0"] { background: #ebedf0; }
+.hm-cell[data-lv="1"] { background: #9be9a8; }
+.hm-cell[data-lv="2"] { background: #40c463; }
+.hm-cell[data-lv="3"] { background: #30a14e; }
+.hm-cell[data-lv="4"] { background: #216e39; }
+
+.hm-footer {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 4px; margin-top: 6px;
+  font-size: .64rem; color: #9a8f85;
+}
+.hm-leg {
+  width: 11px; height: 11px; border-radius: 2px;
+}
+
+/* Tooltip */
+.hm-tip {
+  position: fixed; pointer-events: none; display: none; z-index: 9999;
+  background: #1a2535; color: #e2e8f0;
+  font-size: .71rem; padding: .3rem .55rem;
+  border-radius: 6px; white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+
+/* ── Activity breakdown ──────────────────────────── */
+.act-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem;
+  margin-bottom: 1rem;
+}
+.act-pill {
+  background: #f7f5f0; border-radius: 9px;
+  padding: .5rem .65rem;
+  display: flex; align-items: center; gap: .45rem;
+}
+.act-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.act-name { font-size: .7rem; color: #6b7280; flex: 1; }
+.act-n { font-size: .82rem; font-weight: 700; color: #1a2535; }
+
+/* ── Monthly mini-bar ────────────────────────────── */
+.bar-chart-wrap {
+  display: flex; align-items: flex-end; gap: 5px; height: 56px;
+}
+.bar-col {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+}
+.bar-fill {
+  width: 100%; border-radius: 3px 3px 0 0;
+  background: #1a2535; min-height: 3px;
+  transition: height .4s ease;
+}
+.bar-lbl { font-size: .6rem; color: #9a8f85; }
+
+/* ── Edit form ────────────────────────────────────── */
+.edit-form .form-group { margin-bottom: .9rem; }
+.edit-form label {
+  font-size: .77rem; font-weight: 600; color: #4b5563;
+  display: block; margin-bottom: .2rem;
+}
+.edit-form .form-control {
+  border: 1.5px solid #e5e0d8; border-radius: 8px;
+  font-size: .85rem; padding: .42rem .75rem;
+  color: #1a2535; background: #faf8f4;
+  transition: border-color .15s; width: 100%;
+}
+.edit-form .form-control:focus {
+  border-color: #1a2535; box-shadow: none; outline: none;
+}
+.edit-form .form-control.is-invalid { border-color: #dc2626; }
+.invalid-feedback { font-size: .74rem; color: #dc2626; margin-top: 2px; }
+.btn-save {
+  background: #1a2535; color: #fff; border: none;
+  padding: .44rem 1.4rem; border-radius: 8px;
+  font-size: .84rem; font-weight: 600; cursor: pointer;
+  transition: background .15s;
+}
+.btn-save:hover { background: #2e3f58; }
+.form-control-file { font-size: .8rem; color: #6b7280; }
+
+/* ── Responsive ──────────────────────────────────── */
+@media (max-width: 700px) {
+  .acct-grid          { grid-template-columns: 1fr; }
+  .profile-sidebar    { position: static; }
+  .streak-row         { grid-template-columns: 1fr 1fr; }
+  .act-grid           { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<!-- Tooltip node -->
+<div class="hm-tip" id="hm-tip"></div>
+
+<div class="acct-grid">
+
+  <!-- ══ Sidebar ══════════════════════════════════════ -->
+  <aside class="profile-sidebar">
+    <div class="avatar-wrap">
+      <img class="avatar-img" src="{{ image_file }}" alt="avatar">
+      <div class="online-dot"></div>
     </div>
+    <div class="profile-name">{{ current_user.username }}</div>
+    <div class="profile-email">{{ current_user.email }}</div>
+
+    <div class="pts-box">
+      <div class="pts-val">{{ current_user.points }}</div>
+      <div class="pts-lbl">⚡ Total Points</div>
+    </div>
+
+    <hr class="sidebar-divider">
+
+    <div class="s-row">
+      <span class="s-key">🔥 Streak</span>
+      <span class="s-val accent">{{ current_streak }}d</span>
+    </div>
+    <div class="s-row">
+      <span class="s-key">🏆 Best streak</span>
+      <span class="s-val">{{ longest_streak }}d</span>
+    </div>
+    <div class="s-row">
+      <span class="s-key">📚 Modules</span>
+      <span class="s-val green">{{ modules_done }}</span>
+    </div>
+    <div class="s-row">
+      <span class="s-key">🔓 Levels</span>
+      <span class="s-val">{{ levels_unlocked }}/3</span>
+    </div>
+    <div class="s-row">
+      <span class="s-key">✍️ Posts</span>
+      <span class="s-val">{{ current_user.posts | length }}</span>
+    </div>
+  </aside>
+
+  <!-- ══ Main column ══════════════════════════════════ -->
+  <div class="acct-main">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- ── Streak card ────────────────────────────── -->
+    <div class="ac">
+      <div class="ac-hd">
+        🔥 Activity Streak
+        <span class="ac-hd-sub">— last 52 weeks</span>
+      </div>
+      <div class="ac-bd">
+
+        <!-- 4 stat pills -->
+        <div class="streak-row">
+          <div class="st-pill">
+            <span class="st-val fire">{{ current_streak }}</span>
+            <span class="st-lbl">Day streak</span>
+          </div>
+          <div class="st-pill">
+            <span class="st-val">{{ longest_streak }}</span>
+            <span class="st-lbl">Best streak</span>
+          </div>
+          <div class="st-pill">
+            <span class="st-val" id="js-active-days">0</span>
+            <span class="st-lbl">Active days</span>
+          </div>
+          <div class="st-pill">
+            <span class="st-val green" id="js-total-acts">0</span>
+            <span class="st-lbl">Total activities</span>
+          </div>
+        </div>
+
+        <!-- Month labels -->
+        <div class="hm-months" id="hm-months"></div>
+
+        <!-- Heatmap body -->
+        <div class="hm-body">
+          <!-- Day labels Mon/Wed/Fri -->
+          <div class="hm-day-labels">
+            <div class="hm-day-label"></div>   <!-- Mon: blank -->
+            <div class="hm-day-label"></div>
+            <div class="hm-day-label" style="visibility:visible;">Wed</div>
+            <div class="hm-day-label"></div>
+            <div class="hm-day-label" style="visibility:visible;">Fri</div>
+            <div class="hm-day-label"></div>
+            <div class="hm-day-label"></div>
+          </div>
+          <div class="hm-grid" id="hm-grid"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="hm-footer">
+          <span>Less</span>
+          <div class="hm-leg" style="background:#ebedf0;"></div>
+          <div class="hm-leg" style="background:#9be9a8;"></div>
+          <div class="hm-leg" style="background:#40c463;"></div>
+          <div class="hm-leg" style="background:#30a14e;"></div>
+          <div class="hm-leg" style="background:#216e39;"></div>
+          <span>More</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Activity breakdown card ────────────────── -->
+    <div class="ac">
+      <div class="ac-hd">
+        📊 Activity Breakdown
+        <span class="ac-hd-sub">— past 12 months</span>
+      </div>
+      <div class="ac-bd">
+        <div class="act-grid">
+          {% set act_types = [
+            ('login',      '#6b7280', '🔑', 'Logins'),
+            ('module',     '#2563eb', '🧠', 'Modules'),
+            ('quiz',       '#7c3aed', '📝', 'Quizzes'),
+            ('playground', '#b84c27', '⚡', 'Playground'),
+            ('post',       '#0891b2', '✍️',  'Posts'),
+          ] %}
+          {% for key, color, icon, label in act_types %}
+          <div class="act-pill">
+            <div class="act-dot" style="background:{{ color }};"></div>
+            <span class="act-name">{{ icon }} {{ label }}</span>
+            <span class="act-n">{{ activity_summary.get(key, 0) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div style="font-size:.72rem;color:#9a8f85;margin-bottom:.4rem;">
+          Monthly activity — last 6 months
+        </div>
+        <div class="bar-chart-wrap" id="monthly-bars"></div>
+      </div>
+    </div>
+
+    <!-- ── Edit profile card ──────────────────────── -->
+    <div class="ac">
+      <div class="ac-hd">⚙️ Edit Profile</div>
+      <div class="ac-bd">
+        <form class="edit-form" method="POST" action="" enctype="multipart/form-data">
+          {{ form.hidden_tag() }}
+
+          <div class="form-group">
+            {{ form.username.label() }}
+            {% if form.username.errors %}
+              {{ form.username(class="form-control is-invalid") }}
+              <div class="invalid-feedback">
+                {% for e in form.username.errors %}<span>{{ e }}</span>{% endfor %}
+              </div>
+            {% else %}
+              {{ form.username(class="form-control") }}
+            {% endif %}
+          </div>
+
+          <div class="form-group">
+            {{ form.email.label() }}
+            {% if form.email.errors %}
+              {{ form.email(class="form-control is-invalid") }}
+              <div class="invalid-feedback">
+                {% for e in form.email.errors %}<span>{{ e }}</span>{% endfor %}
+              </div>
+            {% else %}
+              {{ form.email(class="form-control") }}
+            {% endif %}
+          </div>
+
+          <div class="form-group">
+            {{ form.picture.label() }}
+            {{ form.picture(class="form-control-file") }}
+            {% if form.picture.errors %}
+              {% for e in form.picture.errors %}
+                <span style="font-size:.74rem;color:#dc2626;">{{ e }}</span>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          <button type="submit" class="btn-save">Save Changes</button>
+        </form>
+      </div>
+    </div>
+
+  </div><!-- /acct-main -->
+</div><!-- /acct-grid -->
+
+<script>
+const HEATMAP  = {{ heatmap_json | safe }};
+const MONTHLY  = {{ monthly_json | safe }};
+const MONTHS_A = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ── Heatmap ──────────────────────────────────────── */
+(function () {
+  const grid    = document.getElementById('hm-grid');
+  const monthEl = document.getElementById('hm-months');
+  const tip     = document.getElementById('hm-tip');
+
+  if (!HEATMAP.length) return;
+
+  // Bucket by week_index
+  const weeks = {};
+  let activeDays = 0, totalActs = 0;
+  HEATMAP.forEach(c => {
+    (weeks[c.week_index] = weeks[c.week_index] || []).push(c);
+    if (c.count > 0) { activeDays++; totalActs += c.count; }
+  });
+
+  document.getElementById('js-active-days').textContent = activeDays;
+  document.getElementById('js-total-acts').textContent  = totalActs;
+
+  const wks = Object.keys(weeks).map(Number).sort((a,b)=>a-b);
+
+  // Month label tracking
+  let lastM = -1;
+  const monthSpans = wks.map(wi => {
+    const cells = weeks[wi];
+    let lbl = '';
+    cells.forEach(c => {
+      const m = new Date(c.date + 'T00:00:00').getMonth();
+      if (m !== lastM) { lbl = MONTHS_A[m]; lastM = m; }
+    });
+    return lbl;
+  });
+
+  // Render month labels
+  monthSpans.forEach(lbl => {
+    const s = document.createElement('span');
+    s.textContent = lbl;
+    monthEl.appendChild(s);
+  });
+
+  // Render columns
+  wks.forEach(wi => {
+    const col = document.createElement('div');
+    col.className = 'hm-col';
+
+    // Map by weekday (0=Mon … 6=Sun)
+    const byDay = {};
+    weeks[wi].forEach(c => byDay[c.weekday] = c);
+
+    for (let d = 0; d <= 6; d++) {
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell';
+      const data = byDay[d];
+      if (data) {
+        cell.dataset.lv = data.level;
+        // Tooltip
+        cell.addEventListener('mouseenter', e => {
+          tip.textContent = data.count
+            ? `${data.count} activit${data.count>1?'ies':'y'} · ${data.date}`
+            : `No activity · ${data.date}`;
+          tip.style.display = 'block';
+        });
+        cell.addEventListener('mousemove', e => {
+          tip.style.left = (e.clientX + 14) + 'px';
+          tip.style.top  = (e.clientY - 32) + 'px';
+        });
+        cell.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      } else {
+        cell.dataset.lv = '0';
+        cell.classList.add('empty');
+      }
+      col.appendChild(cell);
+    }
+    grid.appendChild(col);
+  });
+})();
+
+/* ── Monthly bars ────────────────────────────────── */
+(function () {
+  const wrap = document.getElementById('monthly-bars');
+  if (!MONTHLY.length) return;
+  const max = Math.max(...MONTHLY.map(m => m.total), 1);
+  MONTHLY.forEach(m => {
+    const pct = m.total > 0 ? Math.max((m.total / max) * 100, 8) : 2;
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.innerHTML = `
+      <div class="bar-fill" style="height:${pct}%;background:${m.total>0?'#1a2535':'#ebedf0'}"
+           title="${m.total} in ${m.month}"></div>
+      <div class="bar-lbl">${m.month}</div>`;
+    wrap.appendChild(col);
+  });
+})();
+</script>
+
 {% endblock content %}
