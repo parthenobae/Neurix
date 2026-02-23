@@ -27,9 +27,7 @@
     <nav class="navbar navbar-expand-md fixed-top">
       <div class="container">
 
-        <a class="navbar-brand" href="/">
-            Neurix
-        </a>
+        <a class="navbar-brand" href="/">Neurix</a>
 
         <button class="navbar-toggler" type="button"
                 data-toggle="collapse" data-target="#navbarToggle"
@@ -45,6 +43,8 @@
             <a class="nav-item nav-link" href="{{ url_for('main.home') }}">Home</a>
             <a class="nav-item nav-link" href="{{ url_for('main.blogs') }}">Blogs</a>
             <a class="nav-item nav-link" href="{{ url_for('playground.index') }}">Playground</a>
+            <a class="nav-item nav-link" href="{{ url_for('learn.dashboard') }}">Learn</a>
+            <a class="nav-item nav-link" href="{{ url_for('datalab.index') }}">Dataset Lab</a>
           </div>
           <div class="navbar-nav align-items-center">
             {% if current_user.is_authenticated %}
@@ -66,8 +66,8 @@
   <main role="main" class="container page-body">
     <div class="row">
 
-      <!-- Content column -->
-      <div class="col-md-8">
+      <!-- Content column — override content_col_class to go full width -->
+      <div class="{% block content_col_class %}col-md-8{% endblock %}">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -81,7 +81,8 @@
         {% block content %}{% endblock %}
       </div>
 
-      <!-- Sidebar column -->
+      <!-- Sidebar — override this block with nothing to hide it -->
+      {% block sidebar %}
       <div class="col-md-4">
         <aside class="sidebar-section">
           <p class="sidebar-label">On this site</p>
@@ -94,10 +95,10 @@
           </ul>
         </aside>
       </div>
+      {% endblock sidebar %}
 
     </div>
   </main>
-
 
   <!-- Optional JavaScript -->
   <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>

@@ -1,10 +1,15 @@
+import json
 from flask import render_template, url_for, flash, redirect, request, Blueprint
 from flask_login import login_user, current_user, logout_user, login_required
 from neurix import db, bcrypt
 from neurix.models import User, Post
 from neurix.users.forms import (RegistrationForm, LoginForm, UpdateAccountForm,
-                                   RequestResetForm, ResetPasswordForm)
+                                RequestResetForm, ResetPasswordForm)
 from neurix.users.utils import save_picture, send_reset_email
+from neurix.users.streak_utils import (
+    log_activity, compute_streak,
+    get_heatmap_data, get_activity_summary, get_monthly_counts
+)
 
 users = Blueprint('users', __name__)
 
@@ -33,6 +38,7 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         if user and bcrypt.check_password_hash(user.password, form.password.data):
             login_user(user, remember=form.remember.data)
+            log_activity(user.id, 'login')          # ← streak: record daily login
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('main.home'))
         else:
@@ -62,9 +68,30 @@ def account():
     elif request.method == 'GET':
         form.username.data = current_user.username
         form.email.data = current_user.email
+
     image_file = url_for('static', filename='profile_pics/' + current_user.image_file)
-    return render_template('account.html', title='Account',
-                           image_file=image_file, form=form)
+
+    # ── Streak data ───────────────────────────────────────────────────────────
+    current_streak, longest_streak = compute_streak(current_user.id)
+    heatmap_cells    = get_heatmap_data(current_user.id, weeks=52)
+    activity_summary = get_activity_summary(current_user.id)
+    monthly_counts   = get_monthly_counts(current_user.id, months=6)
+    modules_done     = sum(1 for p in current_user.module_progress if p.completed)
+    levels_unlocked  = len(current_user.level_unlocks) + 1  # beginner always unlocked
+
+    return render_template(
+        'account.html',
+        title='Account',
+        image_file=image_file,
+        form=form,
+        current_streak=current_streak,
+        longest_streak=longest_streak,
+        heatmap_json=json.dumps(heatmap_cells),
+        monthly_json=json.dumps(monthly_counts),
+        activity_summary=activity_summary,
+        modules_done=modules_done,
+        levels_unlocked=levels_unlocked,
+    )
 
 
 @users.route("/user/<string:username>")

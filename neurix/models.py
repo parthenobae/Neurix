@@ -20,6 +20,7 @@ class User(db.Model, UserMixin):
     points = db.Column(db.Integer, nullable=False, default=0)
     module_progress = db.relationship('ModuleProgress', backref='user', lazy=True)
     level_unlocks = db.relationship('LevelUnlock', backref='user', lazy=True)
+    activity_logs = db.relationship('ActivityLog', backref='user', lazy=True)   # ← new
 
     def get_reset_token(self, expires_sec=1800):
         s = Serializer(current_app.config['SECRET_KEY'])
@@ -55,10 +56,10 @@ class Post(db.Model):
 
 class ModuleProgress(db.Model):
     __tablename__ = 'module_progress'
-    id          = db.Column(db.Integer, primary_key=True)
-    user_id     = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    module_id   = db.Column(db.String(60), nullable=False)
-    completed   = db.Column(db.Boolean, default=False, nullable=False)
+    id           = db.Column(db.Integer, primary_key=True)
+    user_id      = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    module_id    = db.Column(db.String(60), nullable=False)
+    completed    = db.Column(db.Boolean, default=False, nullable=False)
     completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
@@ -90,3 +91,25 @@ class LevelUnlock(db.Model):
 
     def __repr__(self):
         return f"LevelUnlock(user={self.user_id}, level={self.level})"
+
+
+class ActivityLog(db.Model):
+    """
+    One row per user × date × activity_type.
+    activity_type: 'module' | 'quiz' | 'playground' | 'post' | 'login'
+    count increments each time the action is performed that day.
+    """
+    __tablename__ = 'activity_log'
+
+    id            = db.Column(db.Integer, primary_key=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date          = db.Column(db.Date, nullable=False)
+    activity_type = db.Column(db.String(20), nullable=False)
+    count         = db.Column(db.Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'date', 'activity_type', name='uq_user_date_type'),
+    )
+
+    def __repr__(self):
+        return f"ActivityLog(user={self.user_id}, date={self.date}, type={self.activity_type}, n={self.count})"

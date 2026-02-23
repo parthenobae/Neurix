@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 import os
 import requests
+import subprocess
+import sys
+import tempfile
 
 from flask import (render_template, redirect, url_for,
                    flash, request, jsonify, session, abort)
@@ -44,59 +47,23 @@ def _get_or_create_progress(user_id: int, module_id: str) -> ModuleProgress:
         db.session.commit()
     return prog
 
-
 def _execute_code(language: str, code: str) -> dict:
-    """
-    Execute code via Piston API (free, no key required).
-    Returns {"stdout": ..., "stderr": ..., "error": ...}
-    """
-    PISTON_URL = "https://emkc.org/api/v2/piston/execute"
+    """Execute code locally in a subprocess — no external API needed."""
 
-    lang_map = {
-        "python": ("python", "3.10.0"),
-        "javascript": ("javascript", "18.15.0"),
-        "sql": ("sqlite3", "3.36.0"),
-    }
-
-    if language not in lang_map:
-        return {"stdout": "", "stderr": "", "error": f"Unsupported language: {language}"}
-
-    lang_name, lang_version = lang_map[language]
-
-    # Wrap SQL in a minimal Python sqlite3 script for Piston
     if language == "sql":
-        code = f"""
+        code = """
 import sqlite3, sys
-
 conn = sqlite3.connect(':memory:')
 cur = conn.cursor()
-
-# Create sample tables
 cur.executescript('''
-CREATE TABLE employees (
-    id INTEGER PRIMARY KEY,
-    name TEXT,
-    department TEXT,
-    salary REAL,
-    years_experience INTEGER
-);
-INSERT INTO employees VALUES
-  (1,'Alice','Engineering',95000,5),
-  (2,'Bob','Marketing',55000,3),
-  (3,'Carol','Engineering',105000,8),
-  (4,'Dave','HR',48000,2),
-  (5,'Eve','Marketing',72000,6),
-  (6,'Frank','Engineering',115000,10),
-  (7,'Grace','HR',52000,4),
-  (8,'Hank','Marketing',61000,5);
+CREATE TABLE employees (id INTEGER PRIMARY KEY, name TEXT, department TEXT, salary REAL, years_experience INTEGER);
+INSERT INTO employees VALUES (1,'Alice','Engineering',95000,5),(2,'Bob','Marketing',55000,3),(3,'Carol','Engineering',105000,8),(4,'Dave','HR',48000,2),(5,'Eve','Marketing',72000,6),(6,'Frank','Engineering',115000,10),(7,'Grace','HR',52000,4),(8,'Hank','Marketing',61000,5);
 CREATE TABLE transactions (id INTEGER PRIMARY KEY, user_id INTEGER, amount REAL, category TEXT);
 INSERT INTO transactions VALUES (1,1,250.0,'Electronics'),(2,2,80.0,'Books'),(3,1,320.0,'Electronics');
 CREATE TABLE customers (id INTEGER PRIMARY KEY, age INTEGER, income REAL, churn INTEGER, signup_date TEXT);
 INSERT INTO customers VALUES (1,25,50000,0,'2022-06-01'),(2,35,75000,1,'2023-01-15');
 ''')
-
-user_sql = \"\"\"{sql}\"\"\"
-
+user_sql = \"\"\"""" + code.replace('"""', "'''") + """\"\"\"
 try:
     cur.execute(user_sql)
     rows = cur.fetchall()
@@ -107,34 +74,51 @@ try:
     for row in rows:
         print(' | '.join(str(v) for v in row))
 except Exception as e:
-    print(f'SQL Error: {{e}}', file=sys.stderr)
-""".format(sql=code.replace('"""', "'''"))
-        lang_name, lang_version = "python", "3.10.0"
+    print(f'SQL Error: {e}', file=sys.stderr)
+"""
+        language = "python"
 
-    payload = {
-        "language": lang_name,
-        "version": lang_version,
-        "files": [{"name": "main", "content": code}],
-        "stdin": "",
-        "args": [],
-        "compile_timeout": 10000,
-        "run_timeout": 5000,
+    lang_cmd = {
+        "python":     [sys.executable],
+        "javascript": ["node"],
     }
 
+    if language not in lang_cmd:
+        return {"stdout": "", "stderr": "", "error": f"Unsupported language: {language}"}
+
     try:
-        resp = requests.post(PISTON_URL, json=payload, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        run = data.get("run", {})
+        with tempfile.NamedTemporaryFile(
+            suffix=".py" if language == "python" else ".js",
+            mode="w",
+            delete=False,
+        ) as f:
+            f.write(code)
+            fname = f.name
+
+        result = subprocess.run(
+            lang_cmd[language] + [fname],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
         return {
-            "stdout": run.get("stdout", ""),
-            "stderr": run.get("stderr", ""),
-            "error": run.get("stderr", "") if run.get("code", 0) != 0 else "",
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "error":  result.stderr if result.returncode != 0 else "",
         }
-    except requests.exceptions.Timeout:
+
+    except subprocess.TimeoutExpired:
         return {"stdout": "", "stderr": "", "error": "Execution timed out (5s limit)."}
+    except FileNotFoundError as e:
+        return {"stdout": "", "stderr": "", "error": f"Runtime not found: {e}"}
     except Exception as exc:
-        return {"stdout": "", "stderr": "", "error": f"Execution service error: {exc}"}
+        return {"stdout": "", "stderr": "", "error": f"Execution error: {exc}"}
+    finally:
+        try:
+            import os; os.unlink(fname)
+        except Exception:
+            pass
 
 
 def _check_solution(output: str, checks: list) -> bool:
