@@ -4,6 +4,8 @@ from flask_login import current_user, login_required
 from neurix import db
 from neurix.models import Post
 from neurix.posts.forms import PostForm
+from neurix.users.streak_utils import log_activity
+
 
 posts = Blueprint('posts', __name__)
 
@@ -16,6 +18,7 @@ def new_post():
         post = Post(title=form.title.data, content=form.content.data, author=current_user)
         db.session.add(post)
         db.session.commit()
+        log_activity(current_user.id, 'post')
         flash('Your post has been created!', 'success')
         return redirect(url_for('main.home'))
     return render_template('create_post.html', title='New Post',

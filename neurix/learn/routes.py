@@ -10,6 +10,7 @@ import tempfile
 from flask import (render_template, redirect, url_for,
                    flash, request, jsonify, session, abort)
 from flask_login import login_required, current_user
+from neurix.users.streak_utils import log_activity
 
 from neurix import db
 from neurix.models import ModuleProgress, LevelUnlock, ChatMessage
@@ -203,6 +204,7 @@ def complete_module(module_id):
         prog.mark_complete()
         current_user.points += mod["points"]
         db.session.commit()
+        log_activity(current_user.id, 'module')
 
     return jsonify({
         "success": True,
@@ -315,6 +317,7 @@ def submit_unlock_quiz(level):
             db.session.add(unlock)
             current_user.points += POINTS_QUIZ_PASS
             db.session.commit()
+            log_activity(current_user.id, 'quiz')
 
         return jsonify({
             "passed": True,

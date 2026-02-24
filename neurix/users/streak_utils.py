@@ -20,7 +20,7 @@ def log_activity(user_id: int, activity_type: str) -> None:
     Safe to call many times — increments count if row already exists.
     activity_type: 'module' | 'quiz' | 'playground' | 'post' | 'login'
     """
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now().date()
     row = ActivityLog.query.filter_by(
         user_id=user_id,
         date=today,
