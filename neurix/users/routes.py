@@ -1,5 +1,5 @@
 import json
-from flask import render_template, url_for, flash, redirect, request, Blueprint
+from flask import render_template, url_for, flash, redirect, request, Blueprint, make_response
 from flask_login import login_user, current_user, logout_user, login_required
 from neurix import db, bcrypt
 from neurix.models import User, Post
@@ -38,7 +38,7 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         if user and bcrypt.check_password_hash(user.password, form.password.data):
             login_user(user, remember=form.remember.data)
-            log_activity(user.id, 'login')          # ← streak: record daily login
+            log_activity(user.id, 'login')
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('main.home'))
         else:
@@ -71,28 +71,52 @@ def account():
 
     image_file = url_for('static', filename='profile_pics/' + current_user.image_file)
 
-    # ── Streak data ───────────────────────────────────────────────────────────
     current_streak, longest_streak = compute_streak(current_user.id)
-    heatmap_cells    = get_heatmap_data(current_user.id, weeks=52)
+    heatmap_data     = get_heatmap_data(current_user.id)
     activity_summary = get_activity_summary(current_user.id)
     monthly_counts   = get_monthly_counts(current_user.id, months=6)
     modules_done     = sum(1 for p in current_user.module_progress if p.completed)
-    levels_unlocked  = len(current_user.level_unlocks) + 1  # beginner always unlocked
+    levels_unlocked  = len(current_user.level_unlocks) + 1
 
-    return render_template(
+    response = make_response(render_template(
         'account.html',
         title='Account',
         image_file=image_file,
         form=form,
         current_streak=current_streak,
         longest_streak=longest_streak,
-        heatmap_json=json.dumps(heatmap_cells),
+        heatmap_json=json.dumps(heatmap_data),
         monthly_json=json.dumps(monthly_counts),
         activity_summary=activity_summary,
         modules_done=modules_done,
         levels_unlocked=levels_unlocked,
-    )
+    ))
+    # Prevent browser from caching the account page so heatmap always refreshes
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
+
+
+
+@users.route("/account/heatmap_data")
+@login_required
+def heatmap_data():
+    """Lightweight endpoint — returns fresh heatmap JSON for live refresh."""
+    from flask import jsonify
+    heatmap = get_heatmap_data(current_user.id)
+    current_streak, longest_streak = compute_streak(current_user.id)
+    activity_summary = get_activity_summary(current_user.id)
+    response = make_response(jsonify({
+        "heatmap":        heatmap,
+        "current_streak": current_streak,
+        "longest_streak": longest_streak,
+        "activity_summary": activity_summary,
+        "points":         current_user.points,
+    }))
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 @users.route("/user/<string:username>")
 def user_posts(username):

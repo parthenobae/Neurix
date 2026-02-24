@@ -6,73 +6,48 @@
 
 {% block content %}
 <style>
-/* ── Layout grid ─────────────────────────────────── */
+/* ── Layout ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
 .acct-grid {
   display: grid;
-  grid-template-columns: 210px 1fr;
+  grid-template-columns: 200px 1fr;
   gap: 1.2rem;
   align-items: start;
 }
 
-/* ── Profile sidebar ─────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────────── */
 .profile-sidebar {
   background: #fff;
   border: 1.5px solid #e5e0d8;
   border-radius: 14px;
-  padding: 1.5rem 1.1rem;
+  padding: 1.4rem 1.1rem;
   text-align: center;
   box-shadow: 0 2px 8px rgba(26,37,53,.06);
   position: sticky;
   top: 80px;
 }
-.avatar-wrap {
-  position: relative;
-  display: inline-block;
-  margin-bottom: .85rem;
-}
-.avatar-img {
-  width: 86px; height: 86px;
-  border-radius: 50%;
-  border: 3px solid #e5e0d8;
-  object-fit: cover;
-}
-.online-dot {
-  position: absolute; bottom: 3px; right: 3px;
-  width: 18px; height: 18px;
-  background: #27a35a;
-  border-radius: 50%;
-  border: 2.5px solid #fff;
-}
-.profile-name {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.1rem; color: #1a2535; margin-bottom: .1rem;
-}
-.profile-email { font-size: .73rem; color: #9a8f85; margin-bottom: 1rem; }
+.avatar-wrap { position: relative; display: inline-block; margin-bottom: .8rem; }
+.avatar-img  { width: 84px; height: 84px; border-radius: 50%; border: 3px solid #e5e0d8; object-fit: cover; }
+.online-dot  { position: absolute; bottom: 3px; right: 3px; width: 16px; height: 16px; background: #27a35a; border-radius: 50%; border: 2.5px solid #fff; }
 
-.pts-box {
-  background: #1a2535;
-  border-radius: 10px; padding: .55rem .8rem;
-  margin-bottom: 1rem;
-}
-.pts-val {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.7rem; color: #f59e0b; line-height: 1;
-}
-.pts-lbl { font-size: .66rem; color: #64748b; margin-top: 2px; }
+.profile-name  { font-family: 'DM Serif Display', serif; font-size: 1.08rem; color: #1a2535; margin-bottom: .1rem; }
+.profile-email { font-size: .72rem; color: #9a8f85; margin-bottom: .9rem; }
 
-.sidebar-divider { border: none; border-top: 1px solid #f0ede8; margin: .85rem 0; }
+.pts-box  { background: #1a2535; border-radius: 10px; padding: .5rem .8rem; margin-bottom: .9rem; }
+.pts-val  { font-family: 'DM Serif Display', serif; font-size: 1.65rem; color: #f59e0b; line-height: 1; }
+.pts-lbl  { font-size: .65rem; color: #64748b; margin-top: 2px; }
 
-.s-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: .22rem 0; font-size: .77rem;
-}
-.s-row .s-key { color: #6b7280; }
-.s-row .s-val { font-weight: 700; color: #1a2535; }
-.s-row .s-val.accent { color: #b84c27; }
-.s-row .s-val.green  { color: #27a35a; }
+.sdiv { border: none; border-top: 1px solid #f0ede8; margin: .8rem 0; }
+
+.s-row { display: flex; justify-content: space-between; align-items: center; padding: .2rem 0; font-size: .76rem; }
+.s-row .sk { color: #6b7280; }
+.s-row .sv { font-weight: 700; color: #1a2535; }
+.s-row .sv.accent { color: #b84c27; }
+.s-row .sv.green  { color: #27a35a; }
 
 /* ── Cards ───────────────────────────────────────── */
-.acct-main { display: flex; flex-direction: column; gap: 1.2rem; }
+.acct-main { display: flex; flex-direction: column; gap: 1.1rem; }
 
 .ac {
   background: #fff;
@@ -82,137 +57,180 @@
   box-shadow: 0 2px 8px rgba(26,37,53,.05);
 }
 .ac-hd {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .8rem 1.25rem;
+  display: flex; align-items: baseline; gap: .5rem;
+  padding: .75rem 1.2rem;
   border-bottom: 1px solid #f0ede8;
-  font-family: 'DM Serif Display', serif;
-  font-size: .97rem; color: #1a2535;
 }
-.ac-hd-sub {
-  font-family: inherit;
-  font-size: .72rem; color: #9a8f85; font-weight: 400; margin-left: .3rem;
-}
-.ac-bd { padding: 1.1rem 1.25rem; }
+.ac-hd-title { font-family: 'DM Serif Display', serif; font-size: .97rem; color: #1a2535; }
+.ac-hd-sub   { font-size: .71rem; color: #9a8f85; }
+.ac-bd { padding: 1rem 1.2rem; }
 
 /* ── Streak pills ────────────────────────────────── */
-.streak-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: .6rem;
+.streak-pills {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: .55rem;
   margin-bottom: 1.1rem;
 }
-.st-pill {
-  background: #f7f5f0; border-radius: 10px;
-  padding: .65rem .5rem; text-align: center;
-}
-.st-val {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.5rem; color: #1a2535; line-height: 1;
-  display: block;
-}
-.st-val.fire  { color: #b84c27; }
-.st-val.green { color: #27a35a; }
-.st-lbl { font-size: .64rem; color: #9a8f85; margin-top: 3px; display: block; }
+.sp { background: #f7f5f0; border-radius: 10px; padding: .6rem .4rem; text-align: center; }
+.sp-val { font-family: 'DM Serif Display', serif; font-size: 1.45rem; color: #1a2535; line-height: 1; display: block; }
+.sp-val.fire  { color: #b84c27; }
+.sp-val.green { color: #27a35a; }
+.sp-lbl { font-size: .62rem; color: #9a8f85; margin-top: 3px; display: block; }
 
-/* ── Heatmap ─────────────────────────────────────── */
-.hm-months {
-  display: flex; gap: 2px;
-  font-size: .62rem; color: #9a8f85;
+/* ════════════════════════════════════════════════════
+   LEETCODE HEATMAP
+   ════════════════════════════════════════════════════ */
+
+/* Top stats bar */
+.hm-statsbar {
+  display: flex; align-items: center; gap: 1.5rem;
+  margin-bottom: .9rem; flex-wrap: wrap;
+}
+.hm-total-label {
+  font-size: .85rem; color: #1a2535;
+}
+.hm-total-label strong { font-weight: 700; }
+.hm-stat { font-size: .78rem; color: #6b7280; }
+.hm-stat span { font-weight: 600; color: #1a2535; }
+
+/* Heatmap wrapper */
+.hm-outer {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.hm-container {
+  display: inline-flex;         /* shrink to content so month labels align */
+  flex-direction: column;
+  gap: 0;
+  min-width: max-content;
+}
+
+/* Month labels row */
+.hm-month-row {
+  display: flex;
   margin-bottom: 4px;
-  padding-left: 18px; /* offset for day labels */
+  padding-left: 22px;           /* offset for day-of-week labels */
 }
-.hm-months span { min-width: 13px; flex: 1; }
+.hm-month-cell {
+  font-size: .68rem;
+  color: #6b7280;
+  white-space: nowrap;
+  /* width is set by JS to match exactly the columns that month spans */
+}
 
-.hm-body { display: flex; gap: 3px; align-items: flex-start; overflow-x: auto; }
+/* Grid body = day labels + columns */
+.hm-body {
+  display: flex;
+  gap: 0;
+}
 
-.hm-day-labels {
-  display: flex; flex-direction: column; gap: 3px;
-  padding-top: 0;
-  margin-right: 2px;
+/* Sun/Mon/Wed/Fri labels */
+.hm-day-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-right: 4px;
+  width: 18px;
+  flex-shrink: 0;
 }
 .hm-day-label {
-  height: 13px; font-size: .58rem; color: #9a8f85;
-  line-height: 13px; white-space: nowrap;
-  width: 14px; text-align: right;
+  height: 11px;
+  font-size: .58rem;
+  color: #9a8f85;
+  line-height: 11px;
+  text-align: right;
+  white-space: nowrap;
 }
 
-.hm-grid { display: flex; gap: 2px; }
-.hm-col  { display: flex; flex-direction: column; gap: 2px; }
-.hm-cell {
-  width: 13px; height: 13px;
-  border-radius: 2.5px;
-  flex-shrink: 0;
-  cursor: default;
-  transition: transform .1s, opacity .1s;
+/* Week columns */
+.hm-grid {
+  display: flex;
+  gap: 3px;
 }
-.hm-cell:hover  { transform: scale(1.4); z-index: 5; }
-.hm-cell.empty  { opacity: 0; pointer-events: none; }
+.hm-week {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 11px;
+  flex-shrink: 0;
+}
+
+/* Individual day cells */
+.hm-cell {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity .1s;
+  position: relative;
+}
+.hm-cell:hover { opacity: .75; }
+
+/* Level colours — LeetCode palette */
 .hm-cell[data-lv="0"] { background: #ebedf0; }
 .hm-cell[data-lv="1"] { background: #9be9a8; }
 .hm-cell[data-lv="2"] { background: #40c463; }
 .hm-cell[data-lv="3"] { background: #30a14e; }
 .hm-cell[data-lv="4"] { background: #216e39; }
 
-.hm-footer {
-  display: flex; align-items: center; justify-content: flex-end;
-  gap: 4px; margin-top: 6px;
+/* Today highlight */
+.hm-cell.today {
+  outline: 1.5px solid #b84c27;
+  outline-offset: 1px;
+}
+
+/* Empty padding cells (before first real day of week) */
+.hm-cell.pad { background: transparent; cursor: default; }
+
+/* Legend */
+.hm-legend {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 8px; justify-content: flex-end;
   font-size: .64rem; color: #9a8f85;
 }
-.hm-leg {
-  width: 11px; height: 11px; border-radius: 2px;
-}
+.hm-leg { width: 11px; height: 11px; border-radius: 2px; }
 
 /* Tooltip */
 .hm-tip {
-  position: fixed; pointer-events: none; display: none; z-index: 9999;
+  position: fixed;
   background: #1a2535; color: #e2e8f0;
-  font-size: .71rem; padding: .3rem .55rem;
-  border-radius: 6px; white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  font-size: .71rem; padding: .3rem .6rem;
+  border-radius: 6px; pointer-events: none;
+  display: none; z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
 }
 
 /* ── Activity breakdown ──────────────────────────── */
 .act-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem;
+  display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem;
   margin-bottom: 1rem;
 }
 .act-pill {
   background: #f7f5f0; border-radius: 9px;
-  padding: .5rem .65rem;
-  display: flex; align-items: center; gap: .45rem;
+  padding: .5rem .65rem; display: flex; align-items: center; gap: .45rem;
 }
-.act-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.act-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .act-name { font-size: .7rem; color: #6b7280; flex: 1; }
-.act-n { font-size: .82rem; font-weight: 700; color: #1a2535; }
+.act-n    { font-size: .82rem; font-weight: 700; color: #1a2535; }
 
-/* ── Monthly mini-bar ────────────────────────────── */
-.bar-chart-wrap {
-  display: flex; align-items: flex-end; gap: 5px; height: 56px;
-}
-.bar-col {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; gap: 3px;
-}
-.bar-fill {
-  width: 100%; border-radius: 3px 3px 0 0;
-  background: #1a2535; min-height: 3px;
-  transition: height .4s ease;
-}
-.bar-lbl { font-size: .6rem; color: #9a8f85; }
+/* ── Monthly bar chart ───────────────────────────── */
+.bar-chart-wrap { display: flex; align-items: flex-end; gap: 5px; height: 56px; }
+.bar-col  { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.bar-fill { width: 100%; border-radius: 3px 3px 0 0; background: #1a2535; min-height: 3px; }
+.bar-lbl  { font-size: .6rem; color: #9a8f85; }
 
-/* ── Edit form ────────────────────────────────────── */
+/* ── Edit form ───────────────────────────────────── */
 .edit-form .form-group { margin-bottom: .9rem; }
-.edit-form label {
-  font-size: .77rem; font-weight: 600; color: #4b5563;
-  display: block; margin-bottom: .2rem;
-}
+.edit-form label { font-size: .77rem; font-weight: 600; color: #4b5563; display: block; margin-bottom: .2rem; }
 .edit-form .form-control {
   border: 1.5px solid #e5e0d8; border-radius: 8px;
   font-size: .85rem; padding: .42rem .75rem;
   color: #1a2535; background: #faf8f4;
   transition: border-color .15s; width: 100%;
 }
-.edit-form .form-control:focus {
-  border-color: #1a2535; box-shadow: none; outline: none;
-}
+.edit-form .form-control:focus { border-color: #1a2535; box-shadow: none; outline: none; }
 .edit-form .form-control.is-invalid { border-color: #dc2626; }
 .invalid-feedback { font-size: .74rem; color: #dc2626; margin-top: 2px; }
 .btn-save {
@@ -224,16 +242,14 @@
 .btn-save:hover { background: #2e3f58; }
 .form-control-file { font-size: .8rem; color: #6b7280; }
 
-/* ── Responsive ──────────────────────────────────── */
-@media (max-width: 700px) {
-  .acct-grid          { grid-template-columns: 1fr; }
-  .profile-sidebar    { position: static; }
-  .streak-row         { grid-template-columns: 1fr 1fr; }
-  .act-grid           { grid-template-columns: 1fr 1fr; }
+@media(max-width: 700px) {
+  .acct-grid    { grid-template-columns: 1fr; }
+  .profile-sidebar { position: static; }
+  .streak-pills { grid-template-columns: 1fr 1fr; }
+  .act-grid     { grid-template-columns: 1fr 1fr; }
 }
 </style>
 
-<!-- Tooltip node -->
 <div class="hm-tip" id="hm-tip"></div>
 
 <div class="acct-grid">
@@ -252,34 +268,18 @@
       <div class="pts-lbl">⚡ Total Points</div>
     </div>
 
-    <hr class="sidebar-divider">
+    <hr class="sdiv">
 
-    <div class="s-row">
-      <span class="s-key">🔥 Streak</span>
-      <span class="s-val accent">{{ current_streak }}d</span>
-    </div>
-    <div class="s-row">
-      <span class="s-key">🏆 Best streak</span>
-      <span class="s-val">{{ longest_streak }}d</span>
-    </div>
-    <div class="s-row">
-      <span class="s-key">📚 Modules</span>
-      <span class="s-val green">{{ modules_done }}</span>
-    </div>
-    <div class="s-row">
-      <span class="s-key">🔓 Levels</span>
-      <span class="s-val">{{ levels_unlocked }}/3</span>
-    </div>
-    <div class="s-row">
-      <span class="s-key">✍️ Posts</span>
-      <span class="s-val">{{ current_user.posts | length }}</span>
-    </div>
+    <div class="s-row"><span class="sk">🔥 Streak</span>     <span class="sv accent">{{ current_streak }}d</span></div>
+    <div class="s-row"><span class="sk">🏆 Best</span>        <span class="sv">{{ longest_streak }}d</span></div>
+    <div class="s-row"><span class="sk">📚 Modules</span>    <span class="sv green">{{ modules_done }}</span></div>
+    <div class="s-row"><span class="sk">🔓 Levels</span>     <span class="sv">{{ levels_unlocked }}/3</span></div>
+    <div class="s-row"><span class="sk">✍️ Posts</span>       <span class="sv">{{ current_user.posts | length }}</span></div>
   </aside>
 
   <!-- ══ Main column ══════════════════════════════════ -->
   <div class="acct-main">
 
-    <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for cat, msg in messages %}
@@ -288,54 +288,66 @@
       {% endif %}
     {% endwith %}
 
-    <!-- ── Streak card ────────────────────────────── -->
+    <!-- ── Streak card ──────────────────────────────── -->
     <div class="ac">
       <div class="ac-hd">
-        🔥 Activity Streak
-        <span class="ac-hd-sub">— last 52 weeks</span>
+        <span class="ac-hd-title">🔥 Activity</span>
+        <span class="ac-hd-sub">— past 52 weeks</span>
       </div>
       <div class="ac-bd">
 
         <!-- 4 stat pills -->
-        <div class="streak-row">
-          <div class="st-pill">
-            <span class="st-val fire">{{ current_streak }}</span>
-            <span class="st-lbl">Day streak</span>
+        <div class="streak-pills">
+          <div class="sp">
+            <span class="sp-val fire">{{ current_streak }}</span>
+            <span class="sp-lbl">Day streak</span>
           </div>
-          <div class="st-pill">
-            <span class="st-val">{{ longest_streak }}</span>
-            <span class="st-lbl">Best streak</span>
+          <div class="sp">
+            <span class="sp-val">{{ longest_streak }}</span>
+            <span class="sp-lbl">Best streak</span>
           </div>
-          <div class="st-pill">
-            <span class="st-val" id="js-active-days">0</span>
-            <span class="st-lbl">Active days</span>
+          <div class="sp">
+            <span class="sp-val" id="js-active">0</span>
+            <span class="sp-lbl">Active days</span>
           </div>
-          <div class="st-pill">
-            <span class="st-val green" id="js-total-acts">0</span>
-            <span class="st-lbl">Total activities</span>
+          <div class="sp">
+            <span class="sp-val green" id="js-total">0</span>
+            <span class="sp-lbl">Total activities</span>
           </div>
         </div>
 
-        <!-- Month labels -->
-        <div class="hm-months" id="hm-months"></div>
-
-        <!-- Heatmap body -->
-        <div class="hm-body">
-          <!-- Day labels Mon/Wed/Fri -->
-          <div class="hm-day-labels">
-            <div class="hm-day-label"></div>   <!-- Mon: blank -->
-            <div class="hm-day-label"></div>
-            <div class="hm-day-label" style="visibility:visible;">Wed</div>
-            <div class="hm-day-label"></div>
-            <div class="hm-day-label" style="visibility:visible;">Fri</div>
-            <div class="hm-day-label"></div>
-            <div class="hm-day-label"></div>
+        <!-- LeetCode stats bar -->
+        <div class="hm-statsbar">
+          <div class="hm-total-label">
+            <strong id="js-total-label">0</strong> activities in the past one year
           </div>
-          <div class="hm-grid" id="hm-grid"></div>
+          <div class="hm-stat">Total active days: <span id="js-active-label">0</span></div>
+          <div class="hm-stat">Max streak: <span>{{ longest_streak }}</span></div>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="hm-outer">
+          <div class="hm-container" id="hm-container">
+            <div class="hm-month-row" id="hm-months"></div>
+            <div class="hm-body">
+              <!-- Day-of-week labels -->
+              <div class="hm-day-col">
+                <div class="hm-day-label"></div>   <!-- Sun -->
+                <div class="hm-day-label">Mon</div>
+                <div class="hm-day-label"></div>   <!-- Tue -->
+                <div class="hm-day-label">Wed</div>
+                <div class="hm-day-label"></div>   <!-- Thu -->
+                <div class="hm-day-label">Fri</div>
+                <div class="hm-day-label"></div>   <!-- Sat -->
+              </div>
+              <!-- Week columns injected by JS -->
+              <div class="hm-grid" id="hm-grid"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Legend -->
-        <div class="hm-footer">
+        <div class="hm-legend">
           <span>Less</span>
           <div class="hm-leg" style="background:#ebedf0;"></div>
           <div class="hm-leg" style="background:#9be9a8;"></div>
@@ -348,10 +360,10 @@
       </div>
     </div>
 
-    <!-- ── Activity breakdown card ────────────────── -->
+    <!-- ── Activity breakdown ────────────────────────── -->
     <div class="ac">
       <div class="ac-hd">
-        📊 Activity Breakdown
+        <span class="ac-hd-title">📊 Activity Breakdown</span>
         <span class="ac-hd-sub">— past 12 months</span>
       </div>
       <div class="ac-bd">
@@ -372,16 +384,14 @@
           {% endfor %}
         </div>
 
-        <div style="font-size:.72rem;color:#9a8f85;margin-bottom:.4rem;">
-          Monthly activity — last 6 months
-        </div>
+        <div style="font-size:.72rem;color:#9a8f85;margin-bottom:.4rem;">Monthly activity — last 6 months</div>
         <div class="bar-chart-wrap" id="monthly-bars"></div>
       </div>
     </div>
 
-    <!-- ── Edit profile card ──────────────────────── -->
+    <!-- ── Edit profile ──────────────────────────────── -->
     <div class="ac">
-      <div class="ac-hd">⚙️ Edit Profile</div>
+      <div class="ac-hd"><span class="ac-hd-title">⚙️ Edit Profile</span></div>
       <div class="ac-bd">
         <form class="edit-form" method="POST" action="" enctype="multipart/form-data">
           {{ form.hidden_tag() }}
@@ -390,9 +400,7 @@
             {{ form.username.label() }}
             {% if form.username.errors %}
               {{ form.username(class="form-control is-invalid") }}
-              <div class="invalid-feedback">
-                {% for e in form.username.errors %}<span>{{ e }}</span>{% endfor %}
-              </div>
+              <div class="invalid-feedback">{% for e in form.username.errors %}<span>{{ e }}</span>{% endfor %}</div>
             {% else %}
               {{ form.username(class="form-control") }}
             {% endif %}
@@ -402,9 +410,7 @@
             {{ form.email.label() }}
             {% if form.email.errors %}
               {{ form.email(class="form-control is-invalid") }}
-              <div class="invalid-feedback">
-                {% for e in form.email.errors %}<span>{{ e }}</span>{% endfor %}
-              </div>
+              <div class="invalid-feedback">{% for e in form.email.errors %}<span>{{ e }}</span>{% endfor %}</div>
             {% else %}
               {{ form.email(class="form-control") }}
             {% endif %}
@@ -414,9 +420,7 @@
             {{ form.picture.label() }}
             {{ form.picture(class="form-control-file") }}
             {% if form.picture.errors %}
-              {% for e in form.picture.errors %}
-                <span style="font-size:.74rem;color:#dc2626;">{{ e }}</span>
-              {% endfor %}
+              {% for e in form.picture.errors %}<span style="font-size:.74rem;color:#dc2626;">{{ e }}</span>{% endfor %}
             {% endif %}
           </div>
 
@@ -429,89 +433,145 @@
 </div><!-- /acct-grid -->
 
 <script>
-const HEATMAP  = {{ heatmap_json | safe }};
-const MONTHLY  = {{ monthly_json | safe }};
-const MONTHS_A = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/* ═══════════════════════════════════════════════════
+   DATA from Flask
+   ═══════════════════════════════════════════════════ */
+const HM      = {{ heatmap_json | safe }};   // {cells, total, active_days}
+const MONTHLY = {{ monthly_json | safe }};
 
-/* ── Heatmap ──────────────────────────────────────── */
-(function () {
+const CELLS       = HM.cells       || [];
+const TOTAL       = HM.total       || 0;
+const ACTIVE_DAYS = HM.active_days || 0;
+
+// Update stat labels
+document.getElementById('js-total').textContent        = TOTAL;
+document.getElementById('js-active').textContent       = ACTIVE_DAYS;
+document.getElementById('js-total-label').textContent  = TOTAL;
+document.getElementById('js-active-label').textContent = ACTIVE_DAYS;
+
+/* ═══════════════════════════════════════════════════
+   HEATMAP BUILDER
+   Mirrors LeetCode exactly:
+     - Columns = weeks, Sun at top, Sat at bottom
+     - Month labels above the first column of each month
+     - 11px cells, 3px gap
+     - Cell width = 11, col gap = 3 → each column = 14px wide
+   ═══════════════════════════════════════════════════ */
+function buildHeatmapFromCells(CELLS) {
+  if (!CELLS.length) return;
+
   const grid    = document.getElementById('hm-grid');
   const monthEl = document.getElementById('hm-months');
   const tip     = document.getElementById('hm-tip');
 
-  if (!HEATMAP.length) return;
+  const CELL_SIZE = 11;
+  const GAP       = 3;
+  const COL_W     = CELL_SIZE + GAP;   // 14px per column
 
-  // Bucket by week_index
-  const weeks = {};
-  let activeDays = 0, totalActs = 0;
-  HEATMAP.forEach(c => {
-    (weeks[c.week_index] = weeks[c.week_index] || []).push(c);
-    if (c.count > 0) { activeDays++; totalActs += c.count; }
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun',
+                       'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // ── Group cells into weeks (by week_index) ──────
+  const weekMap = {};
+  CELLS.forEach(c => {
+    if (!weekMap[c.week_index]) weekMap[c.week_index] = {};
+    weekMap[c.week_index][c.weekday] = c;   // weekday: 0=Sun … 6=Sat
   });
 
-  document.getElementById('js-active-days').textContent = activeDays;
-  document.getElementById('js-total-acts').textContent  = totalActs;
+  const weekKeys = Object.keys(weekMap).map(Number).sort((a, b) => a - b);
+  const totalWeeks = weekKeys.length;
 
-  const wks = Object.keys(weeks).map(Number).sort((a,b)=>a-b);
+  // ── Month label placement ───────────────────────
+  // For each week column, check if the month changes anywhere in that column.
+  // If yes, that column gets a month label.
+  // We track which pixel-x the month starts at.
+  const monthPositions = [];   // [{label, x_px}]
+  let lastMonth = -1;
 
-  // Month label tracking
-  let lastM = -1;
-  const monthSpans = wks.map(wi => {
-    const cells = weeks[wi];
-    let lbl = '';
-    cells.forEach(c => {
-      const m = new Date(c.date + 'T00:00:00').getMonth();
-      if (m !== lastM) { lbl = MONTHS_A[m]; lastM = m; }
-    });
-    return lbl;
+  weekKeys.forEach((wk, colIdx) => {
+    const days = weekMap[wk];
+    // Check Mon (1) first — day 0 (Sun) might be last day of prev week
+    for (let d = 0; d <= 6; d++) {
+      const cell = days[d];
+      if (!cell) continue;
+      const m = new Date(cell.date + 'T00:00:00').getMonth();
+      if (m !== lastMonth) {
+        monthPositions.push({ label: MONTH_NAMES[m], x_px: colIdx * COL_W });
+        lastMonth = m;
+        break;
+      }
+    }
   });
 
-  // Render month labels
-  monthSpans.forEach(lbl => {
-    const s = document.createElement('span');
-    s.textContent = lbl;
-    monthEl.appendChild(s);
+  // ── Render month labels with correct pixel widths ──
+  // Each label spans from its x_px to the next label's x_px (or end)
+  monthPositions.forEach((mp, i) => {
+    const nextX  = i + 1 < monthPositions.length
+                   ? monthPositions[i + 1].x_px
+                   : totalWeeks * COL_W;
+    const width  = nextX - mp.x_px;
+    const span   = document.createElement('span');
+    span.className = 'hm-month-cell';
+    span.textContent = mp.label;
+    span.style.width = width + 'px';
+    span.style.display = 'inline-block';
+    monthEl.appendChild(span);
   });
 
-  // Render columns
-  wks.forEach(wi => {
-    const col = document.createElement('div');
-    col.className = 'hm-col';
+  // ── Render week columns ─────────────────────────
+  weekKeys.forEach(wk => {
+    const days = weekMap[wk];
+    const col  = document.createElement('div');
+    col.className = 'hm-week';
 
-    // Map by weekday (0=Mon … 6=Sun)
-    const byDay = {};
-    weeks[wi].forEach(c => byDay[c.weekday] = c);
-
+    // Always render 7 rows: Sun (0) → Sat (6)
     for (let d = 0; d <= 6; d++) {
       const cell = document.createElement('div');
-      cell.className = 'hm-cell';
-      const data = byDay[d];
-      if (data) {
+      const data = days[d];
+
+      if (!data) {
+        // Padding cell — empty space, no colour
+        cell.className = 'hm-cell pad';
+      } else {
+        cell.className = 'hm-cell' + (data.is_today ? ' today' : '');
         cell.dataset.lv = data.level;
+
         // Tooltip
-        cell.addEventListener('mouseenter', e => {
-          tip.textContent = data.count
-            ? `${data.count} activit${data.count>1?'ies':'y'} · ${data.date}`
-            : `No activity · ${data.date}`;
+        const dateObj = new Date(data.date + 'T00:00:00');
+        const dateStr = dateObj.toLocaleDateString('en-US', {
+          month: 'long', day: 'numeric', year: 'numeric'
+        });
+        const label = data.count === 0
+          ? `No activity on ${dateStr}`
+          : `${data.count} activit${data.count > 1 ? 'ies' : 'y'} on ${dateStr}`;
+
+        cell.addEventListener('mouseenter', () => {
+          tip.textContent = label;
           tip.style.display = 'block';
         });
         cell.addEventListener('mousemove', e => {
           tip.style.left = (e.clientX + 14) + 'px';
-          tip.style.top  = (e.clientY - 32) + 'px';
+          tip.style.top  = (e.clientY - 34) + 'px';
         });
-        cell.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
-      } else {
-        cell.dataset.lv = '0';
-        cell.classList.add('empty');
+        cell.addEventListener('mouseleave', () => {
+          tip.style.display = 'none';
+        });
       }
+
       col.appendChild(cell);
     }
+
     grid.appendChild(col);
   });
-})();
+}
 
-/* ── Monthly bars ────────────────────────────────── */
-(function () {
+// Initial render
+buildHeatmapFromCells(CELLS);
+
+/* ═══════════════════════════════════════════════════
+   MONTHLY BAR CHART
+   ═══════════════════════════════════════════════════ */
+(function buildBars() {
   const wrap = document.getElementById('monthly-bars');
   if (!MONTHLY.length) return;
   const max = Math.max(...MONTHLY.map(m => m.total), 1);
@@ -520,12 +580,64 @@ const MONTHS_A = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','N
     const col = document.createElement('div');
     col.className = 'bar-col';
     col.innerHTML = `
-      <div class="bar-fill" style="height:${pct}%;background:${m.total>0?'#1a2535':'#ebedf0'}"
+      <div class="bar-fill" style="height:${pct}%;background:${m.total > 0 ? '#1a2535' : '#ebedf0'}"
            title="${m.total} in ${m.month}"></div>
       <div class="bar-lbl">${m.month}</div>`;
     wrap.appendChild(col);
   });
 })();
+
+
+/* ═══════════════════════════════════════════════════
+   LIVE HEATMAP REFRESH
+   Rebuilds heatmap when page gets focus (user comes
+   back from doing a module) + every 30 seconds.
+   ═══════════════════════════════════════════════════ */
+let refreshTimer = null;
+
+async function refreshHeatmap() {
+  try {
+    const resp = await fetch('/account/heatmap_data', {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    const hm = data.heatmap;
+
+    // Update stat numbers
+    document.getElementById('js-total').textContent        = hm.total;
+    document.getElementById('js-active').textContent       = hm.active_days;
+    document.getElementById('js-total-label').textContent  = hm.total;
+    document.getElementById('js-active-label').textContent = hm.active_days;
+
+    // Update points in sidebar
+    const ptsEl = document.querySelector('.pts-val');
+    if (ptsEl) ptsEl.textContent = data.points;
+
+    // Rebuild heatmap grid entirely
+    const grid    = document.getElementById('hm-grid');
+    const monthEl = document.getElementById('hm-months');
+    grid.innerHTML    = '';
+    monthEl.innerHTML = '';
+
+    buildHeatmapFromCells(hm.cells || []);
+
+  } catch(e) {
+    // silently fail — stale data is better than an error
+  }
+}
+
+// Refocus: user went to another tab (doing a module) and came back
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    refreshHeatmap();
+  }
+});
+
+// Also poll every 30 seconds while page is open
+refreshTimer = setInterval(refreshHeatmap, 30000);
+
 </script>
 
 {% endblock content %}
