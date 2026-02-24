@@ -457,7 +457,7 @@ document.getElementById('js-active-label').textContent = ACTIVE_DAYS;
      - 11px cells, 3px gap
      - Cell width = 11, col gap = 3 → each column = 14px wide
    ═══════════════════════════════════════════════════ */
-(function buildHeatmap() {
+function buildHeatmapFromCells(CELLS) {
   if (!CELLS.length) return;
 
   const grid    = document.getElementById('hm-grid');
@@ -563,7 +563,10 @@ document.getElementById('js-active-label').textContent = ACTIVE_DAYS;
 
     grid.appendChild(col);
   });
-})();
+}
+
+// Initial render
+buildHeatmapFromCells(CELLS);
 
 /* ═══════════════════════════════════════════════════
    MONTHLY BAR CHART
@@ -583,6 +586,58 @@ document.getElementById('js-active-label').textContent = ACTIVE_DAYS;
     wrap.appendChild(col);
   });
 })();
+
+
+/* ═══════════════════════════════════════════════════
+   LIVE HEATMAP REFRESH
+   Rebuilds heatmap when page gets focus (user comes
+   back from doing a module) + every 30 seconds.
+   ═══════════════════════════════════════════════════ */
+let refreshTimer = null;
+
+async function refreshHeatmap() {
+  try {
+    const resp = await fetch('/account/heatmap_data', {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    const hm = data.heatmap;
+
+    // Update stat numbers
+    document.getElementById('js-total').textContent        = hm.total;
+    document.getElementById('js-active').textContent       = hm.active_days;
+    document.getElementById('js-total-label').textContent  = hm.total;
+    document.getElementById('js-active-label').textContent = hm.active_days;
+
+    // Update points in sidebar
+    const ptsEl = document.querySelector('.pts-val');
+    if (ptsEl) ptsEl.textContent = data.points;
+
+    // Rebuild heatmap grid entirely
+    const grid    = document.getElementById('hm-grid');
+    const monthEl = document.getElementById('hm-months');
+    grid.innerHTML    = '';
+    monthEl.innerHTML = '';
+
+    buildHeatmapFromCells(hm.cells || []);
+
+  } catch(e) {
+    // silently fail — stale data is better than an error
+  }
+}
+
+// Refocus: user went to another tab (doing a module) and came back
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    refreshHeatmap();
+  }
+});
+
+// Also poll every 30 seconds while page is open
+refreshTimer = setInterval(refreshHeatmap, 30000);
+
 </script>
 
 {% endblock content %}
