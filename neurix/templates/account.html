@@ -14,6 +14,8 @@
   grid-template-columns: 200px 1fr;
   gap: 1.2rem;
   align-items: start;
+  max-width: 960px;
+  margin: 0 auto;
 }
 
 /* ── Sidebar ─────────────────────────────────────── */
@@ -77,127 +79,133 @@
 .sp-lbl { font-size: .62rem; color: #9a8f85; margin-top: 3px; display: block; }
 
 /* ════════════════════════════════════════════════════
-   LEETCODE HEATMAP
+   GITHUB-STYLE HEATMAP (past 12 rolling months)
    ════════════════════════════════════════════════════ */
 
-/* Top stats bar */
+/* Stats bar above grid */
 .hm-statsbar {
-  display: flex; align-items: center; gap: 1.5rem;
-  margin-bottom: .9rem; flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.85rem;
 }
 .hm-total-label {
-  font-size: .85rem; color: #1a2535;
+  color: #1a2535;
+  font-weight: 500;
 }
-.hm-total-label strong { font-weight: 700; }
-.hm-stat { font-size: .78rem; color: #6b7280; }
-.hm-stat span { font-weight: 600; color: #1a2535; }
-
-/* Heatmap wrapper */
-.hm-outer {
-  overflow-x: auto;
-  padding-bottom: 4px;
+.hm-total-label strong {
+  font-weight: 700;
+  color: #1a2535;
+}
+.hm-stats-right {
+  display: flex;
+  gap: 1.5rem;
+  color: #6b7280;
+}
+.hm-stat span {
+  font-weight: 600;
+  color: #1a2535;
+  margin-left: 0.25rem;
 }
 
-.hm-container {
-  display: inline-flex;         /* shrink to content so month labels align */
+/* Heatmap container */
+.heatmap-container {
+  display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+/* Main heatmap wrapper */
+.heatmap-wrapper {
+  display: flex;
+  gap: 0.5rem;
   min-width: max-content;
 }
 
-/* Month labels row */
-.hm-month-row {
+/* Day labels column */
+
+/* Months container - flex row with gaps */
+.months-container {
   display: flex;
-  margin-bottom: 4px;
-  padding-left: 22px;           /* offset for day-of-week labels */
-}
-.hm-month-cell {
-  font-size: .68rem;
-  color: #6b7280;
-  white-space: nowrap;
-  /* width is set by JS to match exactly the columns that month spans */
+  gap: 16px;
+  align-items: flex-start;
 }
 
-/* Grid body = day labels + columns */
-.hm-body {
-  display: flex;
-  gap: 0;
-}
-
-/* Sun/Mon/Wed/Fri labels */
-.hm-day-col {
+/* Individual month block */
+.month-block {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  margin-right: 4px;
-  width: 18px;
-  flex-shrink: 0;
-}
-.hm-day-label {
-  height: 11px;
-  font-size: .58rem;
-  color: #9a8f85;
-  line-height: 11px;
-  text-align: right;
-  white-space: nowrap;
 }
 
-/* Week columns */
-.hm-grid {
+/* Week row within a month */
+.week-row {
   display: flex;
   gap: 3px;
 }
-.hm-week {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 11px;
-  flex-shrink: 0;
-}
 
-/* Individual day cells */
-.hm-cell {
+/* Individual day cell */
+.day-cell {
   width: 11px;
   height: 11px;
   border-radius: 2px;
-  flex-shrink: 0;
+  background-color: #ebedf0;
   cursor: pointer;
-  transition: opacity .1s;
+  transition: transform 0.1s ease;
+}
+.day-cell:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* Month labels row */
+.month-labels-row {
   position: relative;
+  height: 20px;
+  margin-top: 4px;
+  padding-left: 26px; /* Match day labels width */
+  min-width: max-content;
 }
-.hm-cell:hover { opacity: .75; }
-
-/* Level colours — LeetCode palette */
-.hm-cell[data-lv="0"] { background: #ebedf0; }
-.hm-cell[data-lv="1"] { background: #9be9a8; }
-.hm-cell[data-lv="2"] { background: #40c463; }
-.hm-cell[data-lv="3"] { background: #30a14e; }
-.hm-cell[data-lv="4"] { background: #216e39; }
-
-/* Today highlight */
-.hm-cell.today {
-  outline: 1.5px solid #b84c27;
-  outline-offset: 1px;
+.month-label {
+  position: absolute;
+  font-size: 0.65rem;
+  color: #6b7280;
+  white-space: nowrap;
+  transform: translateX(-50%);
 }
-
-/* Empty padding cells (before first real day of week) */
-.hm-cell.pad { background: transparent; cursor: default; }
 
 /* Legend */
 .hm-legend {
-  display: flex; align-items: center; gap: 4px;
-  margin-top: 8px; justify-content: flex-end;
-  font-size: .64rem; color: #9a8f85;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  justify-content: flex-end;
+  font-size: .64rem;
+  color: #9a8f85;
 }
-.hm-leg { width: 11px; height: 11px; border-radius: 2px; }
+.hm-leg {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+}
 
 /* Tooltip */
 .hm-tip {
   position: fixed;
-  background: #1a2535; color: #e2e8f0;
-  font-size: .71rem; padding: .3rem .6rem;
-  border-radius: 6px; pointer-events: none;
-  display: none; z-index: 9999;
+  background: #1a2535;
+  color: #e2e8f0;
+  font-size: .71rem;
+  padding: .3rem .6rem;
+  border-radius: 6px;
+  pointer-events: none;
+  display: none;
+  z-index: 9999;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0,0,0,.3);
 }
@@ -247,6 +255,8 @@
   .profile-sidebar { position: static; }
   .streak-pills { grid-template-columns: 1fr 1fr; }
   .act-grid     { grid-template-columns: 1fr 1fr; }
+  .hm-statsbar { flex-direction: column; align-items: flex-start; }
+  .hm-stats-right { flex-wrap: wrap; gap: 1rem; }
 }
 </style>
 
@@ -288,11 +298,11 @@
       {% endif %}
     {% endwith %}
 
-    <!-- ── Streak card ──────────────────────────────── -->
+    <!-- ── Activity card ──────────────────────────────── -->
     <div class="ac">
       <div class="ac-hd">
-        <span class="ac-hd-title">🔥 Activity</span>
-        <span class="ac-hd-sub">— past 52 weeks</span>
+        <span class="ac-hd-title">🔥 Contribution Activity</span>
+        <span class="ac-hd-sub">— past 12 rolling months</span>
       </div>
       <div class="ac-bd">
 
@@ -316,35 +326,24 @@
           </div>
         </div>
 
-        <!-- LeetCode stats bar -->
+        <!-- Stats bar -->
         <div class="hm-statsbar">
           <div class="hm-total-label">
-            <strong id="js-total-label">0</strong> activities in the past one year
+            <strong id="js-total-label">0</strong> submissions in the past one year
           </div>
-          <div class="hm-stat">Total active days: <span id="js-active-label">0</span></div>
-          <div class="hm-stat">Max streak: <span>{{ longest_streak }}</span></div>
+          <div class="hm-stats-right">
+            <div class="hm-stat">Total active days: <span id="js-active-label">0</span></div>
+            <div class="hm-stat">Max streak: <span>{{ longest_streak }}</span></div>
+          </div>
         </div>
 
-        <!-- Heatmap -->
-        <div class="hm-outer">
-          <div class="hm-container" id="hm-container">
-            <div class="hm-month-row" id="hm-months"></div>
-            <div class="hm-body">
-              <!-- Day-of-week labels -->
-              <div class="hm-day-col">
-                <div class="hm-day-label"></div>   <!-- Sun -->
-                <div class="hm-day-label">Mon</div>
-                <div class="hm-day-label"></div>   <!-- Tue -->
-                <div class="hm-day-label">Wed</div>
-                <div class="hm-day-label"></div>   <!-- Thu -->
-                <div class="hm-day-label">Fri</div>
-                <div class="hm-day-label"></div>   <!-- Sat -->
-              </div>
-              <!-- Week columns injected by JS -->
-              <div class="hm-grid" id="hm-grid"></div>
-            </div>
-          </div>
+        <!-- Heatmap container -->
+        <div class="heatmap-container" id="heatmap-container">
+          <!-- JS will inject the heatmap here -->
         </div>
+
+        <!-- Month labels row (separate container for positioning) -->
+        <div class="month-labels-row" id="month-labels-row"></div>
 
         <!-- Legend -->
         <div class="hm-legend">
@@ -433,211 +432,348 @@
 </div><!-- /acct-grid -->
 
 <script>
-/* ═══════════════════════════════════════════════════
-   DATA from Flask
-   ═══════════════════════════════════════════════════ */
-const HM      = {{ heatmap_json | safe }};   // {cells, total, active_days}
+// ===================================================
+// GITHUB-STYLE HEATMAP - PAST 12 ROLLING MONTHS
+// CORRECTED VERTICAL LAYOUT (SUNDAY ON TOP)
+// ===================================================
+
+// Data from Flask
+const HM = {{ heatmap_json | safe }};
 const MONTHLY = {{ monthly_json | safe }};
 
-const CELLS       = HM.cells       || [];
-const TOTAL       = HM.total       || 0;
+// Extract data
+const CELLS = HM.cells || [];
+const TOTAL = HM.total || 0;
 const ACTIVE_DAYS = HM.active_days || 0;
 
-// Update stat labels
-document.getElementById('js-total').textContent        = TOTAL;
-document.getElementById('js-active').textContent       = ACTIVE_DAYS;
-document.getElementById('js-total-label').textContent  = TOTAL;
+// Update stat displays
+document.getElementById('js-total').textContent = TOTAL;
+document.getElementById('js-active').textContent = ACTIVE_DAYS;
+document.getElementById('js-total-label').textContent = TOTAL;
 document.getElementById('js-active-label').textContent = ACTIVE_DAYS;
 
-/* ═══════════════════════════════════════════════════
-   HEATMAP BUILDER
-   Mirrors LeetCode exactly:
-     - Columns = weeks, Sun at top, Sat at bottom
-     - Month labels above the first column of each month
-     - 11px cells, 3px gap
-     - Cell width = 11, col gap = 3 → each column = 14px wide
-   ═══════════════════════════════════════════════════ */
-function buildHeatmapFromCells(CELLS) {
-  if (!CELLS.length) return;
+// ===================================================
+// Configuration
+// ===================================================
+const CONFIG = {
+  cellSize: 11,
+  cellGap: 3,
+  monthGap: 16,
+  dayLabelWidth: 0,  // no day labels
+  
+  colors: {
+    0: '#ebedf0',
+    1: '#9be9a8',
+    2: '#40c463',
+    3: '#30a14e',
+    4: '#216e39'
+  },
+  
+  monthNames: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  
+  weekdays: [] // removed — no day labels shown
+};
 
-  const grid    = document.getElementById('hm-grid');
-  const monthEl = document.getElementById('hm-months');
-  const tip     = document.getElementById('hm-tip');
+// ===================================================
+// Core Heatmap Builder - CORRECTED VERSION
+// ===================================================
+function buildHeatmap() {
+  const container = document.getElementById('heatmap-container');
+  const monthLabelsRow = document.getElementById('month-labels-row');
+  const tip = document.getElementById('hm-tip');
+  
+  if (!container || !monthLabelsRow) return;
+  
+  container.innerHTML = '';
+  monthLabelsRow.innerHTML = '';
+  
+  if (!CELLS.length) {
+    container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #9a8f85;">No activity data available for the past year</div>';
+    return;
+  }
 
-  const CELL_SIZE = 11;
-  const GAP       = 3;
-  const COL_W     = CELL_SIZE + GAP;   // 14px per column
-
-  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun',
-                       'Jul','Aug','Sep','Oct','Nov','Dec'];
-
-  // ── Group cells into weeks (by week_index) ──────
-  const weekMap = {};
-  CELLS.forEach(c => {
-    if (!weekMap[c.week_index]) weekMap[c.week_index] = {};
-    weekMap[c.week_index][c.weekday] = c;   // weekday: 0=Sun … 6=Sat
+  // Create activity map
+  const activityMap = new Map();
+  CELLS.forEach(cell => {
+    activityMap.set(cell.date, cell);
   });
 
-  const weekKeys = Object.keys(weekMap).map(Number).sort((a, b) => a - b);
-  const totalWeeks = weekKeys.length;
+  // Generate date range (past 12 rolling months)
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  
+  const startDate = new Date(today);
+  startDate.setMonth(today.getMonth() - 11);
+  startDate.setDate(1);
+  
+  const endDate = new Date(today);
+  
+  // Generate all dates
+  const allDates = [];
+  const currentDate = new Date(startDate);
+  while (currentDate <= endDate) {
+    allDates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
 
-  // ── Month label placement ───────────────────────
-  // For each week column, check if the month changes anywhere in that column.
-  // If yes, that column gets a month label.
-  // We track which pixel-x the month starts at.
-  const monthPositions = [];   // [{label, x_px}]
-  let lastMonth = -1;
-
-  weekKeys.forEach((wk, colIdx) => {
-    const days = weekMap[wk];
-    // Check Mon (1) first — day 0 (Sun) might be last day of prev week
-    for (let d = 0; d <= 6; d++) {
-      const cell = days[d];
-      if (!cell) continue;
-      const m = new Date(cell.date + 'T00:00:00').getMonth();
-      if (m !== lastMonth) {
-        monthPositions.push({ label: MONTH_NAMES[m], x_px: colIdx * COL_W });
-        lastMonth = m;
-        break;
-      }
-    }
-  });
-
-  // ── Render month labels with correct pixel widths ──
-  // Each label spans from its x_px to the next label's x_px (or end)
-  monthPositions.forEach((mp, i) => {
-    const nextX  = i + 1 < monthPositions.length
-                   ? monthPositions[i + 1].x_px
-                   : totalWeeks * COL_W;
-    const width  = nextX - mp.x_px;
-    const span   = document.createElement('span');
-    span.className = 'hm-month-cell';
-    span.textContent = mp.label;
-    span.style.width = width + 'px';
-    span.style.display = 'inline-block';
-    monthEl.appendChild(span);
-  });
-
-  // ── Render week columns ─────────────────────────
-  weekKeys.forEach(wk => {
-    const days = weekMap[wk];
-    const col  = document.createElement('div');
-    col.className = 'hm-week';
-
-    // Always render 7 rows: Sun (0) → Sat (6)
-    for (let d = 0; d <= 6; d++) {
-      const cell = document.createElement('div');
-      const data = days[d];
-
-      if (!data) {
-        // Padding cell — empty space, no colour
-        cell.className = 'hm-cell pad';
-      } else {
-        cell.className = 'hm-cell' + (data.is_today ? ' today' : '');
-        cell.dataset.lv = data.level;
-
-        // Tooltip
-        const dateObj = new Date(data.date + 'T00:00:00');
-        const dateStr = dateObj.toLocaleDateString('en-US', {
-          month: 'long', day: 'numeric', year: 'numeric'
-        });
-        const label = data.count === 0
-          ? `No activity on ${dateStr}`
-          : `${data.count} activit${data.count > 1 ? 'ies' : 'y'} on ${dateStr}`;
-
-        cell.addEventListener('mouseenter', () => {
-          tip.textContent = label;
-          tip.style.display = 'block';
-        });
-        cell.addEventListener('mousemove', e => {
-          tip.style.left = (e.clientX + 14) + 'px';
-          tip.style.top  = (e.clientY - 34) + 'px';
-        });
-        cell.addEventListener('mouseleave', () => {
-          tip.style.display = 'none';
+  // Group by month
+  const months = [];
+  let currentMonthGroup = [];
+  let currentMonthKey = '';
+  
+  allDates.forEach(date => {
+    const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+    
+    if (monthKey !== currentMonthKey) {
+      if (currentMonthGroup.length > 0) {
+        months.push({
+          year: currentMonthGroup[0].getFullYear(),
+          month: currentMonthGroup[0].getMonth(),
+          dates: [...currentMonthGroup]
         });
       }
-
-      col.appendChild(cell);
+      currentMonthGroup = [date];
+      currentMonthKey = monthKey;
+    } else {
+      currentMonthGroup.push(date);
     }
+  });
+  
+  if (currentMonthGroup.length > 0) {
+    months.push({
+      year: currentMonthGroup[0].getFullYear(),
+      month: currentMonthGroup[0].getMonth(),
+      dates: [...currentMonthGroup]
+    });
+  }
 
-    grid.appendChild(col);
+  // Main wrapper
+  const wrapper = document.createElement('div');
+  wrapper.style.display = 'flex';
+  wrapper.style.alignItems = 'flex-start';
+  wrapper.style.minWidth = 'max-content';
+  wrapper.style.gap = '0px';
+
+  // Day labels removed
+
+  // Months container
+  const monthsContainer = document.createElement('div');
+  monthsContainer.style.display = 'flex';
+  monthsContainer.style.gap = CONFIG.monthGap + 'px';
+  monthsContainer.style.alignItems = 'flex-start';
+
+  const monthPositions = [];
+  let cumulativeWidth = 0;
+
+  // Build each month
+  months.forEach((month) => {
+    const firstDate = month.dates[0];
+    const firstWeekday = firstDate.getDay(); // 0 = Sunday
+    
+    // Calculate number of weeks needed
+    const totalSlots = firstWeekday + month.dates.length;
+    const numWeeks = Math.ceil(totalSlots / 7);
+    
+    // Create month block
+    const monthBlock = document.createElement('div');
+    monthBlock.style.display = 'flex';
+    monthBlock.style.flexDirection = 'row'; // Weeks are columns (side by side)
+    monthBlock.style.gap = CONFIG.cellGap + 'px';
+    
+    // Create columns for each week
+    for (let week = 0; week < numWeeks; week++) {
+      const weekColumn = document.createElement('div');
+      weekColumn.style.display = 'flex';
+      weekColumn.style.flexDirection = 'column'; // Days stack vertically
+      weekColumn.style.gap = CONFIG.cellGap + 'px';
+      weekColumn.style.width = CONFIG.cellSize + 'px';
+      
+      // Create cells for each day of the week
+      for (let weekday = 0; weekday < 7; weekday++) {
+        const dayIndex = week * 7 + weekday - firstWeekday;
+        const cell = document.createElement('div');
+        
+        cell.style.width = CONFIG.cellSize + 'px';
+        cell.style.height = CONFIG.cellSize + 'px';
+        cell.style.borderRadius = '2px';
+        cell.style.flexShrink = '0';
+        
+        if (dayIndex >= 0 && dayIndex < month.dates.length) {
+          const currentDate = month.dates[dayIndex];
+          const dateStr = currentDate.toISOString().split('T')[0];
+          const activity = activityMap.get(dateStr);
+          
+          if (activity && activity.count > 0) {
+            const level = Math.min(activity.level || 1, 4);
+            cell.style.backgroundColor = CONFIG.colors[level];
+            cell.style.cursor = 'pointer';
+            
+            // Tooltip
+            const displayDate = currentDate.toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric'
+            });
+            const tipText = `${activity.count} submission${activity.count > 1 ? 's' : ''} · ${displayDate}`;
+            
+            cell.addEventListener('mouseenter', () => {
+              tip.textContent = tipText;
+              tip.style.display = 'block';
+            });
+            cell.addEventListener('mousemove', (e) => {
+              tip.style.left = (e.clientX + 14) + 'px';
+              tip.style.top = (e.clientY - 34) + 'px';
+            });
+            cell.addEventListener('mouseleave', () => {
+              tip.style.display = 'none';
+            });
+            
+            // Highlight today
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (dateStr === todayStr) {
+              cell.style.outline = '1.5px solid #b84c27';
+              cell.style.outlineOffset = '1px';
+            }
+          } else {
+            cell.style.backgroundColor = CONFIG.colors[0];
+          }
+        } else {
+          cell.style.backgroundColor = 'transparent';
+        }
+        
+        weekColumn.appendChild(cell);
+      }
+      monthBlock.appendChild(weekColumn);
+    }
+    
+    monthsContainer.appendChild(monthBlock);
+    
+    // Calculate width for month label
+    const monthWidth = numWeeks * (CONFIG.cellSize + CONFIG.cellGap) - CONFIG.cellGap;
+    monthPositions.push({
+      label: CONFIG.monthNames[month.month],
+      width: monthWidth
+    });
+  });
+
+  wrapper.appendChild(monthsContainer);
+  container.appendChild(wrapper);
+
+  // Position month labels
+  monthLabelsRow.style.paddingLeft = CONFIG.dayLabelWidth + 'px';
+  monthLabelsRow.style.position = 'relative';
+  monthLabelsRow.style.height = '20px';
+  monthLabelsRow.style.marginTop = '5px';
+  
+  let currentX = 0;
+  monthPositions.forEach(pos => {
+    const labelX = currentX + (pos.width / 2);
+    
+    const label = document.createElement('span');
+    label.style.position = 'absolute';
+    label.style.left = labelX + 'px';
+    label.style.fontSize = '0.65rem';
+    label.style.color = '#6b7280';
+    label.style.whiteSpace = 'nowrap';
+    label.style.transform = 'translateX(-50%)';
+    label.textContent = pos.label;
+    
+    monthLabelsRow.appendChild(label);
+    
+    currentX += pos.width + CONFIG.monthGap;
   });
 }
 
-// Initial render
-buildHeatmapFromCells(CELLS);
-
-/* ═══════════════════════════════════════════════════
-   MONTHLY BAR CHART
-   ═══════════════════════════════════════════════════ */
-(function buildBars() {
+// ===================================================
+// Monthly Bar Chart
+// ===================================================
+function buildMonthlyBars() {
   const wrap = document.getElementById('monthly-bars');
-  if (!MONTHLY.length) return;
-  const max = Math.max(...MONTHLY.map(m => m.total), 1);
-  MONTHLY.forEach(m => {
-    const pct = m.total > 0 ? Math.max((m.total / max) * 100, 8) : 2;
+  if (!wrap || !MONTHLY || !MONTHLY.length) return;
+  
+  wrap.innerHTML = '';
+  
+  const last6 = MONTHLY.slice(-6);
+  const max = Math.max(...last6.map(m => m.total), 1);
+  
+  last6.forEach(m => {
+    const pct = m.total > 0 ? (m.total / max) * 100 : 2;
+    
     const col = document.createElement('div');
-    col.className = 'bar-col';
-    col.innerHTML = `
-      <div class="bar-fill" style="height:${pct}%;background:${m.total > 0 ? '#1a2535' : '#ebedf0'}"
-           title="${m.total} in ${m.month}"></div>
-      <div class="bar-lbl">${m.month}</div>`;
+    col.style.flex = '1';
+    col.style.display = 'flex';
+    col.style.flexDirection = 'column';
+    col.style.alignItems = 'center';
+    col.style.gap = '3px';
+    
+    const fill = document.createElement('div');
+    fill.style.width = '100%';
+    fill.style.borderRadius = '3px 3px 0 0';
+    fill.style.background = m.total > 0 ? '#40c463' : '#ebedf0';
+    fill.style.minHeight = '3px';
+    fill.style.height = Math.max(pct, 4) + '%';
+    fill.title = `${m.total} activities in ${m.month}`;
+    
+    const label = document.createElement('div');
+    label.style.fontSize = '0.6rem';
+    label.style.color = '#9a8f85';
+    label.textContent = m.month;
+    
+    col.appendChild(fill);
+    col.appendChild(label);
     wrap.appendChild(col);
   });
-})();
+}
 
-
-/* ═══════════════════════════════════════════════════
-   LIVE HEATMAP REFRESH
-   Rebuilds heatmap when page gets focus (user comes
-   back from doing a module) + every 30 seconds.
-   ═══════════════════════════════════════════════════ */
-let refreshTimer = null;
-
+// ===================================================
+// Live Refresh
+// ===================================================
 async function refreshHeatmap() {
   try {
     const resp = await fetch('/account/heatmap_data', {
       headers: { 'Cache-Control': 'no-cache' }
     });
     if (!resp.ok) return;
+    
     const data = await resp.json();
-
     const hm = data.heatmap;
-
-    // Update stat numbers
-    document.getElementById('js-total').textContent        = hm.total;
-    document.getElementById('js-active').textContent       = hm.active_days;
-    document.getElementById('js-total-label').textContent  = hm.total;
+    
+    document.getElementById('js-total').textContent = hm.total;
+    document.getElementById('js-active').textContent = hm.active_days;
+    document.getElementById('js-total-label').textContent = hm.total;
     document.getElementById('js-active-label').textContent = hm.active_days;
-
-    // Update points in sidebar
+    
     const ptsEl = document.querySelector('.pts-val');
     if (ptsEl) ptsEl.textContent = data.points;
-
-    // Rebuild heatmap grid entirely
-    const grid    = document.getElementById('hm-grid');
-    const monthEl = document.getElementById('hm-months');
-    grid.innerHTML    = '';
-    monthEl.innerHTML = '';
-
-    buildHeatmapFromCells(hm.cells || []);
-
+    
+    // Update CELLS
+    CELLS.length = 0;
+    CELLS.push(...(hm.cells || []));
+    
+    buildHeatmap();
+    buildMonthlyBars();
+    
   } catch(e) {
-    // silently fail — stale data is better than an error
+    console.warn('Refresh failed:', e);
   }
 }
 
-// Refocus: user went to another tab (doing a module) and came back
+// ===================================================
+// Initialize
+// ===================================================
+// Small delay to ensure DOM is ready
+setTimeout(() => {
+  buildHeatmap();
+  buildMonthlyBars();
+}, 100);
+
+// Visibility change
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     refreshHeatmap();
   }
 });
 
-// Also poll every 30 seconds while page is open
-refreshTimer = setInterval(refreshHeatmap, 30000);
-
+// Poll every 30 seconds
+setInterval(refreshHeatmap, 30000);
 </script>
-
 {% endblock content %}

@@ -24,6 +24,17 @@
   {% endif %}
 </head>
 <body>
+<style>
+  html, body {
+    background-color: #f7f5f0;   /* match site cream — kills black scrollbar area */
+    scrollbar-color: #c8c4bc #f7f5f0;   /* Firefox: thumb track */
+    scrollbar-width: thin;
+  }
+  ::-webkit-scrollbar       { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #f7f5f0; }
+  ::-webkit-scrollbar-thumb { background: #c8c4bc; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #aaa49c; }
+</style>
 
   <!-- ── Navbar ─────────────────────────────────────────────────────────── -->
   <header class="site-header">
@@ -67,7 +78,7 @@
 
   <!-- ── Page body ──────────────────────────────────────────────────────── -->
   <main role="main" class="container page-body">
-    <div class="row">
+    <div class="row justify-content-center">
 
       <!-- Content column — override content_col_class to go full width -->
       <div class="{% block content_col_class %}col-md-8{% endblock %}">

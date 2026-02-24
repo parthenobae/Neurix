@@ -139,27 +139,30 @@ def get_heatmap_data(user_id: int) -> Dict:
         if ratio <= 0.75: return 3
         return 4
 
-    # Build cell list — iterate day by day, Sun to Sat columns
+    # Build cell list — one entry per calendar day.
+    # Columns are strict Sun→Sat weeks. week_index advances only on Saturday.
+    # Month boundaries mid-week produce partially-filled columns naturally —
+    # the empty slots (no cell data) render as transparent in the SVG,
+    # which is exactly the LeetCode gap effect. No extra logic needed.
     cells = []
     current = start_sunday
     week_idx = 0
 
     while current <= today:
-        py_wd   = current.weekday()          # Mon=0 … Sun=6
-        lc_wd   = (py_wd + 1) % 7           # Sun=0 … Sat=6  (LeetCode order)
-        count   = date_counts.get(current, 0)
+        py_wd = current.weekday()   # Mon=0 … Sun=6
+        lc_wd = (py_wd + 1) % 7    # Sun=0, Mon=1, … Sat=6
 
+        count = date_counts.get(current, 0)
         cells.append({
             "date":       current.isoformat(),
             "count":      count,
             "level":      _level(count),
-            "weekday":    lc_wd,             # 0=Sun at top, 6=Sat at bottom
+            "weekday":    lc_wd,
             "week_index": week_idx,
             "is_today":   current == today,
-            "is_future":  False,
         })
 
-        if lc_wd == 6:   # just finished a Saturday → next column
+        if lc_wd == 6:   # Saturday → start a new column next iteration
             week_idx += 1
 
         current += timedelta(days=1)
