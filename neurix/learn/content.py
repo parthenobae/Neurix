@@ -180,7 +180,7 @@ y = np.array([150, 200, 250, 290, 360])
 # TODO: Print the prediction
 """,
         "challenge_description": "Fit a linear regression model to predict house prices. Print the predicted price for a 1300 sq ft house. Your output should contain a number.",
-        "ide_solution_check": ["predict", "270", "271", "272", "273", "274"],
+        "ide_solution_check": ["predict", "314.8360655737705", "314", "314.0"],
         "question": {
             "text": "What does Linear Regression minimise during training?",
             "options": [
