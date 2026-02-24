@@ -38,7 +38,7 @@ def login():
         user = User.query.filter_by(email=form.email.data).first()
         if user and bcrypt.check_password_hash(user.password, form.password.data):
             login_user(user, remember=form.remember.data)
-            log_activity(user.id, 'login')          # ← streak: record daily login
+            log_activity(user.id, 'login')
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('main.home'))
         else:
@@ -71,13 +71,12 @@ def account():
 
     image_file = url_for('static', filename='profile_pics/' + current_user.image_file)
 
-    # ── Streak data ───────────────────────────────────────────────────────────
     current_streak, longest_streak = compute_streak(current_user.id)
-    heatmap_cells    = get_heatmap_data(current_user.id, weeks=52)
+    heatmap_data     = get_heatmap_data(current_user.id)
     activity_summary = get_activity_summary(current_user.id)
     monthly_counts   = get_monthly_counts(current_user.id, months=6)
     modules_done     = sum(1 for p in current_user.module_progress if p.completed)
-    levels_unlocked  = len(current_user.level_unlocks) + 1  # beginner always unlocked
+    levels_unlocked  = len(current_user.level_unlocks) + 1
 
     return render_template(
         'account.html',
@@ -86,7 +85,7 @@ def account():
         form=form,
         current_streak=current_streak,
         longest_streak=longest_streak,
-        heatmap_json=json.dumps(heatmap_cells),
+        heatmap_json=json.dumps(heatmap_data),
         monthly_json=json.dumps(monthly_counts),
         activity_summary=activity_summary,
         modules_done=modules_done,
