@@ -20,7 +20,8 @@ class User(db.Model, UserMixin):
     points = db.Column(db.Integer, nullable=False, default=0)
     module_progress = db.relationship('ModuleProgress', backref='user', lazy=True)
     level_unlocks = db.relationship('LevelUnlock', backref='user', lazy=True)
-    activity_logs = db.relationship('ActivityLog', backref='user', lazy=True)   # ← new
+    activity_logs  = db.relationship('ActivityLog',  backref='user', lazy=True)
+    chat_messages  = db.relationship('ChatMessage',  backref='user', lazy=True)
 
     def get_reset_token(self, expires_sec=1800):
         s = Serializer(current_app.config['SECRET_KEY'])
@@ -113,3 +114,32 @@ class ActivityLog(db.Model):
 
     def __repr__(self):
         return f"ActivityLog(user={self.user_id}, date={self.date}, type={self.activity_type}, n={self.count})"
+
+
+class ChatMessage(db.Model):
+    """
+    Persistent chat history per user per module.
+    role: 'user' | 'assistant'
+    """
+    __tablename__ = 'chat_message'
+
+    id        = db.Column(db.Integer, primary_key=True)
+    user_id   = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    module_id = db.Column(db.String(60), nullable=False)
+    role      = db.Column(db.String(10), nullable=False)   # 'user' | 'assistant'
+    content   = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self):
+        return {
+            "role":      self.role,
+            "content":   self.content,
+            "timestamp": self.timestamp.strftime("%H:%M"),
+        }
+
+    def __repr__(self):
+        return f"ChatMessage(user={self.user_id}, module={self.module_id}, role={self.role})"

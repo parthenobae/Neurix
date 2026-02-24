@@ -12,7 +12,7 @@ from flask import (render_template, redirect, url_for,
 from flask_login import login_required, current_user
 
 from neurix import db
-from neurix.models import ModuleProgress, LevelUnlock
+from neurix.models import ModuleProgress, LevelUnlock, ChatMessage
 from neurix.learn import learn
 from neurix.learn.content import (
     MODULES, LEVEL_META, LEVEL_ORDER,
@@ -350,3 +350,185 @@ def quiz_run_code(level):
         "stderr": result["stderr"],
         "error": result["error"],
     })
+
+
+# ── Chatbot ───────────────────────────────────────────────────────────────────
+
+def _build_system_prompt(mod: dict) -> str:
+    """
+    Build a tight system prompt that:
+    - Knows the module's full theory and quiz
+    - Refuses to give direct answers
+    - Uses Socratic hinting only
+    """
+    import re
+    # Strip HTML tags from theory for cleaner context
+    theory_plain = re.sub(r'<[^>]+>', ' ', mod.get('theory', ''))
+    theory_plain = re.sub(r'\s+', ' ', theory_plain).strip()
+
+    # Build quiz context string
+    q = mod.get('question', {})
+    quiz_context = ""
+    if q:
+        opts = "  ".join(
+            f"{o['label']}) {o['text']}" for o in q.get('options', [])
+        )
+        quiz_context = f"\nMCQ Question the student must answer: {q.get('text', '')}\nOptions: {opts}"
+
+    # Build code challenge context if present
+    code_context = ""
+    if mod.get('has_ide'):
+        code_context = (
+            f"\nCoding challenge the student must solve: {mod.get('challenge_description', '')}"
+            f"\nStarter code:\n{mod.get('ide_starter', '')}"
+        )
+
+    return f"""You are a focused ML tutor for the module: "{mod['title']}".
+
+MODULE CONTENT:
+{theory_plain}
+{quiz_context}
+{code_context}
+
+YOUR STRICT RULES:
+1. NEVER give the direct answer to the MCQ question or the coding challenge — not even partially.
+2. Instead, ask the student a guiding question that nudges them toward the answer.
+3. If they are stuck on code, give a conceptual hint about WHAT to think about, not HOW to write it.
+4. Keep responses short — 3 to 5 sentences maximum.
+5. If the student asks something outside this module's topic, gently redirect them back.
+6. Be encouraging and patient. Use plain English, avoid jargon unless explaining it.
+7. You may explain theory concepts from the module content freely — just never reveal quiz/challenge answers.
+"""
+
+
+@learn.route("/learn/module/<module_id>/chat/history", methods=["GET"])
+@login_required
+def chat_history(module_id):
+    """Return the last 40 messages for this user + module."""
+    mod = get_module_by_id(module_id)
+    if not mod:
+        return jsonify({"error": "Module not found"}), 404
+
+    messages = (
+        ChatMessage.query
+        .filter_by(user_id=current_user.id, module_id=module_id)
+        .order_by(ChatMessage.timestamp.asc())
+        .limit(40)
+        .all()
+    )
+    return jsonify({"messages": [m.to_dict() for m in messages]})
+
+
+@learn.route("/learn/module/<module_id>/chat/message", methods=["POST"])
+@login_required
+def chat_message(module_id):
+    """
+    Accept a user message, call Groq API, stream reply back,
+    and persist both turns to ChatMessage table.
+    """
+    from flask import current_app, Response, stream_with_context
+    from groq import Groq
+
+    mod = get_module_by_id(module_id)
+    if not mod:
+        return jsonify({"error": "Module not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    user_text = (data.get("message") or "").strip()
+    if not user_text:
+        return jsonify({"error": "Empty message"}), 400
+
+    # ── Save user message ────────────────────────────────
+    user_msg = ChatMessage(
+        user_id=current_user.id,
+        module_id=module_id,
+        role="user",
+        content=user_text,
+    )
+    db.session.add(user_msg)
+    db.session.commit()
+
+    # ── Build conversation history for Groq ─────────────
+    history = (
+        ChatMessage.query
+        .filter_by(user_id=current_user.id, module_id=module_id)
+        .order_by(ChatMessage.timestamp.asc())
+        .limit(20)          # last 20 turns as context window
+        .all()
+    )
+    groq_messages = [
+        {"role": m.role, "content": m.content} for m in history
+    ]
+
+    system_prompt = _build_system_prompt(mod)
+
+    # ── Call Groq API with streaming ─────────────────────
+    api_key = current_app.config.get("GROQ_API_KEY")
+    if not api_key:
+        return jsonify({"error": "GROQ_API_KEY not configured"}), 500
+
+    client = Groq(api_key=api_key)
+
+    def generate():
+        full_reply = []
+        try:
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    *groq_messages,
+                ],
+                max_tokens=512,
+                temperature=0.5,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_reply.append(delta)
+                    # Server-Sent Events format
+                    yield f"data: {json.dumps({'token': delta})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            return
+
+        # ── Persist assistant reply after streaming ends ─
+        if full_reply:
+            assistant_msg = ChatMessage(
+                user_id=current_user.id,
+                module_id=module_id,
+                role="assistant",
+                content="".join(full_reply),
+            )
+            db.session.add(assistant_msg)
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        yield "data: [DONE]\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",    # disable Nginx buffering for SSE
+        },
+    )
+
+
+@learn.route("/learn/module/<module_id>/chat/clear", methods=["POST"])
+@login_required
+def chat_clear(module_id):
+    """Delete all chat history for this user + module."""
+    mod = get_module_by_id(module_id)
+    if not mod:
+        return jsonify({"error": "Module not found"}), 404
+
+    ChatMessage.query.filter_by(
+        user_id=current_user.id, module_id=module_id
+    ).delete()
+    db.session.commit()
+    return jsonify({"success": True})
