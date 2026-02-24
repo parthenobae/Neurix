@@ -24,7 +24,7 @@ from neurix.datalab import datalab
 
 # ── Config ────────────────────────────────────────────────────────────────────
 ALLOWED_EXTENSIONS = {"csv"}
-MAX_ROWS = 50_000       # safety cap
+MAX_ROWS = 5_000        # safety cap — keeps memory low
 MAX_COLS = 50
 
 PALETTE = {
@@ -47,7 +47,7 @@ def _allowed(filename: str) -> bool:
 def _fig_to_b64(fig) -> str:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight",
-                facecolor=fig.get_facecolor(), dpi=110)
+                facecolor=fig.get_facecolor(), dpi=72)
     plt.close(fig)
     buf.seek(0)
     return base64.b64encode(buf.read()).decode()
@@ -85,7 +85,7 @@ def _correlation_heatmap(df: pd.DataFrame) -> str | None:
 
     corr = num.corr()
     n = len(corr)
-    size = max(5, min(n * 0.9, 12))
+    size = max(4, min(n * 0.7, 9))    # capped smaller to save memory
 
     fig, ax = plt.subplots(figsize=(size, size * 0.85))
     fig.patch.set_facecolor(PALETTE["bg"])
@@ -111,12 +111,12 @@ def _distribution_plots(df: pd.DataFrame) -> str | None:
     if num.empty:
         return None
 
-    cols  = num.columns.tolist()[:12]   # cap at 12
+    cols  = num.columns.tolist()[:6]    # cap at 6 to limit memory
     ncols = min(3, len(cols))
     nrows = (len(cols) + ncols - 1) // ncols
 
     fig, axes = plt.subplots(nrows, ncols,
-                             figsize=(ncols * 4.2, nrows * 3.2))
+                             figsize=(ncols * 3.5, nrows * 2.6))
     fig.patch.set_facecolor(PALETTE["bg"])
     axes_flat = np.array(axes).flatten() if hasattr(axes, "__len__") else [axes]
 
@@ -132,17 +132,7 @@ def _distribution_plots(df: pd.DataFrame) -> str | None:
         for spine in ax.spines.values():
             spine.set_edgecolor(PALETTE["grid"])
 
-        # Overlay KDE
-        try:
-            from scipy.stats import gaussian_kde
-            kde = gaussian_kde(data)
-            xs  = np.linspace(data.min(), data.max(), 200)
-            ax2 = ax.twinx()
-            ax2.plot(xs, kde(xs), color=PALETTE["primary"], lw=1.5, alpha=.7)
-            ax2.set_yticks([])
-            ax2.set_facecolor("none")
-        except Exception:
-            pass
+        # KDE removed — too memory-intensive for larger datasets
 
     for j in range(len(cols), len(axes_flat)):
         axes_flat[j].set_visible(False)
