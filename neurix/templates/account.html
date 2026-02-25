@@ -179,22 +179,6 @@
   transform: translateX(-50%);
 }
 
-/* Legend */
-.hm-legend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 8px;
-  justify-content: flex-end;
-  font-size: .64rem;
-  color: #9a8f85;
-}
-.hm-leg {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
-}
-
 /* Tooltip */
 .hm-tip {
   position: fixed;
@@ -270,7 +254,6 @@
       <img class="avatar-img" src="{{ image_file }}" alt="avatar">
       <div class="online-dot"></div>
     </div>
-    <div class="profile-name">{{ current_user.username }}</div>
     <div class="profile-email">{{ current_user.email }}</div>
 
     <div class="pts-box">
@@ -344,17 +327,6 @@
 
         <!-- Month labels row (separate container for positioning) -->
         <div class="month-labels-row" id="month-labels-row"></div>
-
-        <!-- Legend -->
-        <div class="hm-legend">
-          <span>Less</span>
-          <div class="hm-leg" style="background:#ebedf0;"></div>
-          <div class="hm-leg" style="background:#9be9a8;"></div>
-          <div class="hm-leg" style="background:#40c463;"></div>
-          <div class="hm-leg" style="background:#30a14e;"></div>
-          <div class="hm-leg" style="background:#216e39;"></div>
-          <span>More</span>
-        </div>
 
       </div>
     </div>
@@ -628,11 +600,6 @@ function buildHeatmap() {
             });
             
             // Highlight today
-            const todayStr = new Date().toISOString().split('T')[0];
-            if (dateStr === todayStr) {
-              cell.style.outline = '1.5px solid #b84c27';
-              cell.style.outlineOffset = '1px';
-            }
           } else {
             cell.style.backgroundColor = CONFIG.colors[0];
           }
