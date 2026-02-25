@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from calendar import month_abbr
 from typing import Dict, List, Tuple
 
@@ -15,31 +16,35 @@ from neurix.models import ActivityLog
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 def log_activity(user_id: int, activity_type: str) -> None:
-    """
-    Record one unit of activity for today (UTC).
-    Safe to call many times — increments count if row already exists.
-    activity_type: 'module' | 'quiz' | 'playground' | 'post' | 'login'
-    """
-    today = datetime.now().date()
+    from datetime import datetime
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date()
+
+    print("LOG CALLED:", user_id, activity_type, today)
+
     row = ActivityLog.query.filter_by(
         user_id=user_id,
         date=today,
         activity_type=activity_type,
     ).first()
+
     if row:
+        print("ROW EXISTS → incrementing")
         row.count += 1
     else:
+        print("CREATING NEW ROW")
         db.session.add(ActivityLog(
             user_id=user_id,
             date=today,
             activity_type=activity_type,
             count=1,
         ))
+
     try:
         db.session.commit()
-    except Exception:
+        print("COMMIT SUCCESS")
+    except Exception as e:
+        print("COMMIT FAILED:", e)
         db.session.rollback()
-
 
 # ── Streak ────────────────────────────────────────────────────────────────────
 

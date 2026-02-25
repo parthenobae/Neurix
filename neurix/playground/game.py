@@ -154,6 +154,7 @@ class Matchmaker:
         try:
             user.points += amount
             db.session.commit()
+            log_activity(user_id, 'playground')
         except Exception:
             db.session.rollback()
 

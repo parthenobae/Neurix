@@ -471,10 +471,13 @@ function buildHeatmap() {
     activityMap.set(cell.date, cell);
   });
 
-  // Generate date range (past 12 rolling months)
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
-  
+// Generate date range (past 12 rolling months)
+const today = new Date(
+new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+);
+
+today.setHours(12, 0, 0, 0);
+
   const startDate = new Date(today);
   startDate.setMonth(today.getMonth() - 11);
   startDate.setDate(1);
@@ -592,8 +595,31 @@ function buildHeatmap() {
               tip.style.display = 'block';
             });
             cell.addEventListener('mousemove', (e) => {
-              tip.style.left = (e.clientX + 14) + 'px';
-              tip.style.top = (e.clientY - 34) + 'px';
+              const padding = 12;
+
+              const tipWidth = tip.offsetWidth;
+              const tipHeight = tip.offsetHeight;
+
+              let left = e.clientX + 14;
+              let top = e.clientY - 34;
+
+              // Prevent overflow right
+              if (left + tipWidth + padding > window.innerWidth) {
+                left = window.innerWidth - tipWidth - padding;
+              }
+
+              // Prevent overflow left
+              if (left < padding) {
+                left = padding;
+              }
+
+              // Prevent overflow top
+              if (top < padding) {
+                top = e.clientY + 20;
+              }
+
+              tip.style.left = left + 'px';
+              tip.style.top = top + 'px';
             });
             cell.addEventListener('mouseleave', () => {
               tip.style.display = 'none';

@@ -403,3 +403,27 @@ label {
   .nav-cta { margin-left: 0 !important; margin-top: 0.4rem; display: inline-block; }
   .page-body { padding-top: 1.5rem; }
 }
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;   /* no background */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a2535;       /* your theme dark */
+  border-radius: 0px;        /* rectangular */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2e3f58;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1a2535 transparent;
+}

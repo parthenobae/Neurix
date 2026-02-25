@@ -238,6 +238,7 @@ def run_code(module_id):
         if not prog.completed:
             prog.mark_complete()
             current_user.points += mod["points"]
+            log_activity(current_user.id, 'quiz')
             db.session.commit()
             points_earned = mod["points"]
 

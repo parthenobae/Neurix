@@ -13,6 +13,7 @@ Inside `new_post()`, after `db.session.commit()`:
 ```python
 log_activity(current_user.id, 'post')
 ```
+-- done
 
 ---
 
