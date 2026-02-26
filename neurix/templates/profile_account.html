@@ -247,6 +247,86 @@
 .btn-save:hover { background: #2e3f58; }
 .form-control-file { font-size: .8rem; color: #6b7280; }
 
+/* ── Blog posts section ──────────────────────────── */
+.posts-section {
+  margin-top: 1.1rem;
+}
+.post-card {
+  background: #fff;
+  border: 1.5px solid #e5e0d8;
+  border-radius: 14px;
+  padding: 1.1rem 1.3rem;
+  margin-bottom: .75rem;
+  box-shadow: 0 2px 8px rgba(26,37,53,.04);
+  transition: box-shadow .15s, border-color .15s;
+}
+.post-card:hover {
+  box-shadow: 0 4px 16px rgba(26,37,53,.09);
+  border-color: #d5cfc7;
+}
+.post-card-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1rem;
+  color: #1a2535;
+  text-decoration: none;
+  display: block;
+  margin-bottom: .25rem;
+  line-height: 1.35;
+}
+.post-card-title:hover { color: #b84c27; text-decoration: none; }
+.post-card-meta {
+  font-size: .72rem;
+  color: #9a8f85;
+  margin-bottom: .5rem;
+}
+.post-card-excerpt {
+  font-size: .83rem;
+  color: #4b5563;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.posts-empty {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #9a8f85;
+  font-size: .85rem;
+}
+.posts-empty-icon { font-size: 2rem; margin-bottom: .5rem; }
+
+/* Pagination */
+.pg-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.pg-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px; height: 32px;
+  border-radius: 7px;
+  font-size: .78rem; font-weight: 600;
+  border: 1.5px solid #e5e0d8;
+  background: #fff;
+  color: #1a2535;
+  text-decoration: none;
+  padding: 0 .55rem;
+  transition: all .12s;
+}
+.pg-page-btn:hover { background: #f0ede8; border-color: #d5cfc7; color: #1a2535; text-decoration: none; }
+.pg-page-btn.active {
+  background: #1a2535; color: #fff;
+  border-color: #1a2535; cursor: default;
+}
+.pg-page-btn.disabled { opacity: .4; pointer-events: none; }
+
+
 .profile-viewing-badge {
   display: inline-block;
   font-size: .68rem; color: #6b7280;
@@ -400,6 +480,59 @@
       </div>
     </div>
     {% endif %}
+
+
+    <!-- ── Blog Posts ──────────────────────────────────── -->
+    <div class="ac posts-section">
+      <div class="ac-hd">
+        <span class="ac-hd-title">Blog Posts</span>
+      </div>
+      <div class="ac-bd">
+
+        {% if posts.items %}
+          {% for post in posts.items %}
+          <div class="post-card">
+            <a class="post-card-title" href="{{ url_for('posts.post', post_id=post.id) }}">
+              {{ post.title }}
+            </a>
+            <div class="post-card-meta">
+              {{ post.date_posted.strftime('%b %d, %Y') }}
+            </div>
+            <div class="post-card-excerpt">
+              {{ post.content | striptags | truncate(160, True, '…') }}
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- Pagination -->
+          {% if posts.pages > 1 %}
+          <div class="pg-pagination">
+            <a class="pg-page-btn {% if not posts.has_prev %}disabled{% endif %}"
+               href="?page={{ posts.prev_num }}">&#8592;</a>
+
+            {% for p in posts.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                <a class="pg-page-btn {% if p == posts.page %}active{% endif %}"
+                   href="?page={{ p }}">{{ p }}</a>
+              {% else %}
+                <span class="pg-page-btn disabled">…</span>
+              {% endif %}
+            {% endfor %}
+
+            <a class="pg-page-btn {% if not posts.has_next %}disabled{% endif %}"
+               href="?page={{ posts.next_num }}">&#8594;</a>
+          </div>
+          {% endif %}
+
+        {% else %}
+          <div class="posts-empty">
+            <div class="posts-empty-icon">📝</div>
+            <div>No blog posts yet.</div>
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
 
   </div><!-- /acct-main -->
 </div><!-- /acct-grid -->
