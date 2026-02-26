@@ -433,7 +433,7 @@ const CONFIG = {
   cellGap: 3,
   monthGap: 16,
   dayLabelWidth: 26,
-  
+
   colors: {
     0: '#ebedf0',
     1: '#9be9a8',
@@ -441,10 +441,10 @@ const CONFIG = {
     3: '#30a14e',
     4: '#216e39'
   },
-  
+
   monthNames: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-  
+
 };
 
 // ===================================================
@@ -454,12 +454,12 @@ function buildHeatmap() {
   const container = document.getElementById('heatmap-container');
   const monthLabelsRow = document.getElementById('month-labels-row');
   const tip = document.getElementById('hm-tip');
-  
+
   if (!container || !monthLabelsRow) return;
-  
+
   container.innerHTML = '';
   monthLabelsRow.innerHTML = '';
-  
+
   if (!CELLS.length) {
     container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #9a8f85;">No activity data available for the past year</div>';
     return;
@@ -474,13 +474,13 @@ function buildHeatmap() {
   // Generate date range (past 12 rolling months)
   const today = new Date();
   today.setHours(12, 0, 0, 0);
-  
+
   const startDate = new Date(today);
   startDate.setMonth(today.getMonth() - 11);
   startDate.setDate(1);
-  
+
   const endDate = new Date(today);
-  
+
   // Generate all dates
   const allDates = [];
   const currentDate = new Date(startDate);
@@ -493,10 +493,10 @@ function buildHeatmap() {
   const months = [];
   let currentMonthGroup = [];
   let currentMonthKey = '';
-  
+
   allDates.forEach(date => {
     const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-    
+
     if (monthKey !== currentMonthKey) {
       if (currentMonthGroup.length > 0) {
         months.push({
@@ -511,7 +511,7 @@ function buildHeatmap() {
       currentMonthGroup.push(date);
     }
   });
-  
+
   if (currentMonthGroup.length > 0) {
     months.push({
       year: currentMonthGroup[0].getFullYear(),
@@ -540,17 +540,17 @@ function buildHeatmap() {
   months.forEach((month) => {
     const firstDate = month.dates[0];
     const firstWeekday = firstDate.getDay(); // 0 = Sunday
-    
+
     // Calculate number of weeks needed
     const totalSlots = firstWeekday + month.dates.length;
     const numWeeks = Math.ceil(totalSlots / 7);
-    
+
     // Create month block
     const monthBlock = document.createElement('div');
     monthBlock.style.display = 'flex';
     monthBlock.style.flexDirection = 'row'; // Weeks are columns (side by side)
     monthBlock.style.gap = CONFIG.cellGap + 'px';
-    
+
     // Create columns for each week
     for (let week = 0; week < numWeeks; week++) {
       const weekColumn = document.createElement('div');
@@ -558,33 +558,33 @@ function buildHeatmap() {
       weekColumn.style.flexDirection = 'column'; // Days stack vertically
       weekColumn.style.gap = CONFIG.cellGap + 'px';
       weekColumn.style.width = CONFIG.cellSize + 'px';
-      
+
       // Create cells for each day of the week
       for (let weekday = 0; weekday < 7; weekday++) {
         const dayIndex = week * 7 + weekday - firstWeekday;
         const cell = document.createElement('div');
-        
+
         cell.style.width = CONFIG.cellSize + 'px';
         cell.style.height = CONFIG.cellSize + 'px';
         cell.style.borderRadius = '2px';
         cell.style.flexShrink = '0';
-        
+
         if (dayIndex >= 0 && dayIndex < month.dates.length) {
           const currentDate = month.dates[dayIndex];
           const dateStr = currentDate.toISOString().split('T')[0];
           const activity = activityMap.get(dateStr);
-          
+
           if (activity && activity.count > 0) {
             const level = Math.min(activity.level || 1, 4);
             cell.style.backgroundColor = CONFIG.colors[level];
             cell.style.cursor = 'pointer';
-            
+
             // Tooltip
             const displayDate = currentDate.toLocaleDateString('en-US', {
               month: 'short', day: 'numeric', year: 'numeric'
             });
             const tipText = `${activity.count} activit${activity.count > 1 ? 'ies' : 'y'} · ${displayDate}`;
-            
+
             cell.addEventListener('mouseenter', () => {
               tip.textContent = tipText;
               tip.style.display = 'block';
@@ -619,21 +619,21 @@ cell.addEventListener('mousemove', (e) => {
             cell.addEventListener('mouseleave', () => {
               tip.style.display = 'none';
             });
-            
+
           } else {
             cell.style.backgroundColor = CONFIG.colors[0];
           }
         } else {
           cell.style.backgroundColor = 'transparent';
         }
-        
+
         weekColumn.appendChild(cell);
       }
       monthBlock.appendChild(weekColumn);
     }
-    
+
     monthsContainer.appendChild(monthBlock);
-    
+
     // Calculate width for month label
     const monthWidth = numWeeks * (CONFIG.cellSize + CONFIG.cellGap) - CONFIG.cellGap;
     monthPositions.push({
@@ -650,11 +650,11 @@ cell.addEventListener('mousemove', (e) => {
   monthLabelsRow.style.position = 'relative';
   monthLabelsRow.style.height = '20px';
   monthLabelsRow.style.marginTop = '5px';
-  
+
   let currentX = 0;
   monthPositions.forEach(pos => {
     const labelX = currentX + (pos.width / 2);
-    
+
     const label = document.createElement('span');
     label.style.position = 'absolute';
     label.style.left = labelX + 'px';
@@ -663,9 +663,9 @@ cell.addEventListener('mousemove', (e) => {
     label.style.whiteSpace = 'nowrap';
     label.style.transform = 'translateX(-50%)';
     label.textContent = pos.label;
-    
+
     monthLabelsRow.appendChild(label);
-    
+
     currentX += pos.width + CONFIG.monthGap;
   });
 }
@@ -676,22 +676,22 @@ cell.addEventListener('mousemove', (e) => {
 function buildMonthlyBars() {
   const wrap = document.getElementById('monthly-bars');
   if (!wrap || !MONTHLY || !MONTHLY.length) return;
-  
+
   wrap.innerHTML = '';
-  
+
   const last6 = MONTHLY.slice(-6);
   const max = Math.max(...last6.map(m => m.total), 1);
-  
+
   last6.forEach(m => {
     const pct = m.total > 0 ? (m.total / max) * 100 : 2;
-    
+
     const col = document.createElement('div');
     col.style.flex = '1';
     col.style.display = 'flex';
     col.style.flexDirection = 'column';
     col.style.alignItems = 'center';
     col.style.gap = '3px';
-    
+
     const fill = document.createElement('div');
     fill.style.width = '100%';
     fill.style.borderRadius = '3px 3px 0 0';
@@ -699,12 +699,12 @@ function buildMonthlyBars() {
     fill.style.minHeight = '3px';
     fill.style.height = Math.max(pct, 4) + '%';
     fill.title = `${m.total} activities in ${m.month}`;
-    
+
     const label = document.createElement('div');
     label.style.fontSize = '0.6rem';
     label.style.color = '#9a8f85';
     label.textContent = m.month;
-    
+
     col.appendChild(fill);
     col.appendChild(label);
     wrap.appendChild(col);
@@ -720,25 +720,25 @@ async function refreshHeatmap() {
       headers: { 'Cache-Control': 'no-cache' }
     });
     if (!resp.ok) return;
-    
+
     const data = await resp.json();
     const hm = data.heatmap;
-    
+
     document.getElementById('js-total').textContent = hm.total;
     document.getElementById('js-active').textContent = hm.active_days;
     document.getElementById('js-total-label').textContent = hm.total;
     document.getElementById('js-active-label').textContent = hm.active_days;
-    
+
     const ptsEl = document.querySelector('.pts-val');
     if (ptsEl) ptsEl.textContent = data.points;
-    
+
     // Update CELLS
     CELLS.length = 0;
     CELLS.push(...(hm.cells || []));
-    
+
     buildHeatmap();
     buildMonthlyBars();
-    
+
   } catch(e) {
     console.warn('Refresh failed:', e);
   }
