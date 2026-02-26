@@ -14,8 +14,6 @@
   grid-template-columns: 200px 1fr;
   gap: 1.2rem;
   align-items: start;
-  max-width: 960px;
-  margin: 0 auto;
 }
 
 /* ── Sidebar ─────────────────────────────────────── */
@@ -128,6 +126,21 @@
 }
 
 /* Day labels column */
+.day-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 26px;
+  flex-shrink: 0;
+}
+.day-label {
+  height: 11px;
+  line-height: 11px;
+  font-size: 0.6rem;
+  color: #9a8f85;
+  text-align: right;
+  white-space: nowrap;
+}
 
 /* Months container - flex row with gaps */
 .months-container {
@@ -177,6 +190,22 @@
   color: #6b7280;
   white-space: nowrap;
   transform: translateX(-50%);
+}
+
+/* Legend */
+.hm-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  justify-content: flex-end;
+  font-size: .64rem;
+  color: #9a8f85;
+}
+.hm-leg {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
 }
 
 /* Tooltip */
@@ -234,6 +263,15 @@
 .btn-save:hover { background: #2e3f58; }
 .form-control-file { font-size: .8rem; color: #6b7280; }
 
+.profile-viewing-badge {
+  display: inline-block;
+  font-size: .68rem; color: #6b7280;
+  background: #f0ede8; border: 1px solid #e0dbd3;
+  border-radius: 5px; padding: .18rem .55rem;
+  margin-bottom: .75rem;
+}
+
+
 @media(max-width: 700px) {
   .acct-grid    { grid-template-columns: 1fr; }
   .profile-sidebar { position: static; }
@@ -250,14 +288,21 @@
 
   <!-- ══ Sidebar ══════════════════════════════════════ -->
   <aside class="profile-sidebar">
+    {% set puser = profile_user if view_profile else current_user %}
     <div class="avatar-wrap">
       <img class="avatar-img" src="{{ image_file }}" alt="avatar">
-      <div class="online-dot"></div>
+      {% if not view_profile %}<div class="online-dot"></div>{% endif %}
     </div>
-    <div class="profile-email">{{ current_user.email }}</div>
+    <div class="profile-name">{{ puser.username }}</div>
+    {% if not view_profile %}
+      <div class="profile-email">{{ puser.email }}</div>
+    {% endif %}
+    {% if view_profile %}
+      <div class="profile-viewing-badge">👤 Viewing profile</div>
+    {% endif %}
 
     <div class="pts-box">
-      <div class="pts-val">{{ current_user.points }}</div>
+      <div class="pts-val">{{ puser.points }}</div>
       <div class="pts-lbl">⚡ Total Points</div>
     </div>
 
@@ -267,7 +312,7 @@
     <div class="s-row"><span class="sk">🏆 Best</span>        <span class="sv">{{ longest_streak }}d</span></div>
     <div class="s-row"><span class="sk">📚 Modules</span>    <span class="sv green">{{ modules_done }}</span></div>
     <div class="s-row"><span class="sk">🔓 Levels</span>     <span class="sv">{{ levels_unlocked }}/3</span></div>
-    <div class="s-row"><span class="sk">✍️ Posts</span>       <span class="sv">{{ current_user.posts | length }}</span></div>
+    <div class="s-row"><span class="sk">✍️ Posts</span>       <span class="sv">{{ puser.posts | length }}</span></div>
   </aside>
 
   <!-- ══ Main column ══════════════════════════════════ -->
@@ -328,6 +373,17 @@
         <!-- Month labels row (separate container for positioning) -->
         <div class="month-labels-row" id="month-labels-row"></div>
 
+        <!-- Legend -->
+        <div class="hm-legend">
+          <span>Less</span>
+          <div class="hm-leg" style="background:#ebedf0;"></div>
+          <div class="hm-leg" style="background:#9be9a8;"></div>
+          <div class="hm-leg" style="background:#40c463;"></div>
+          <div class="hm-leg" style="background:#30a14e;"></div>
+          <div class="hm-leg" style="background:#216e39;"></div>
+          <span>More</span>
+        </div>
+
       </div>
     </div>
 
@@ -360,7 +416,8 @@
       </div>
     </div>
 
-    <!-- ── Edit profile ──────────────────────────────── -->
+    <!-- ── Edit profile (own account only) ─────────────── -->
+    {% if not view_profile %}
     <div class="ac">
       <div class="ac-hd"><span class="ac-hd-title">⚙️ Edit Profile</span></div>
       <div class="ac-bd">
@@ -399,6 +456,7 @@
         </form>
       </div>
     </div>
+    {% endif %}
 
   </div><!-- /acct-main -->
 </div><!-- /acct-grid -->
@@ -431,7 +489,7 @@ const CONFIG = {
   cellSize: 11,
   cellGap: 3,
   monthGap: 16,
-  dayLabelWidth: 0,  // no day labels
+  dayLabelWidth: 26,
   
   colors: {
     0: '#ebedf0',
@@ -444,7 +502,7 @@ const CONFIG = {
   monthNames: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   
-  weekdays: [] // removed — no day labels shown
+  weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 };
 
 // ===================================================
@@ -471,13 +529,10 @@ function buildHeatmap() {
     activityMap.set(cell.date, cell);
   });
 
-// Generate date range (past 12 rolling months)
-const today = new Date(
-new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-);
-
-today.setHours(12, 0, 0, 0);
-
+  // Generate date range (past 12 rolling months)
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  
   const startDate = new Date(today);
   startDate.setMonth(today.getMonth() - 11);
   startDate.setDate(1);
@@ -528,9 +583,29 @@ today.setHours(12, 0, 0, 0);
   wrapper.style.display = 'flex';
   wrapper.style.alignItems = 'flex-start';
   wrapper.style.minWidth = 'max-content';
-  wrapper.style.gap = '0px';
+  wrapper.style.gap = '5px';
 
-  // Day labels removed
+  // Day labels column
+  const dayLabelsCol = document.createElement('div');
+  dayLabelsCol.style.display = 'flex';
+  dayLabelsCol.style.flexDirection = 'column';
+  dayLabelsCol.style.width = CONFIG.dayLabelWidth + 'px';
+  dayLabelsCol.style.flexShrink = '0';
+  dayLabelsCol.style.gap = CONFIG.cellGap + 'px';
+  
+  CONFIG.weekdays.forEach(day => {
+    const label = document.createElement('div');
+    label.style.height = CONFIG.cellSize + 'px';
+    label.style.lineHeight = CONFIG.cellSize + 'px';
+    label.style.fontSize = '0.6rem';
+    label.style.color = '#9a8f85';
+    label.style.textAlign = 'right';
+    label.style.whiteSpace = 'nowrap';
+    label.textContent = day;
+    dayLabelsCol.appendChild(label);
+  });
+  
+  wrapper.appendChild(dayLabelsCol);
 
   // Months container
   const monthsContainer = document.createElement('div');
@@ -595,37 +670,19 @@ today.setHours(12, 0, 0, 0);
               tip.style.display = 'block';
             });
             cell.addEventListener('mousemove', (e) => {
-              const padding = 12;
-
-              const tipWidth = tip.offsetWidth;
-              const tipHeight = tip.offsetHeight;
-
-              let left = e.clientX + 14;
-              let top = e.clientY - 34;
-
-              // Prevent overflow right
-              if (left + tipWidth + padding > window.innerWidth) {
-                left = window.innerWidth - tipWidth - padding;
-              }
-
-              // Prevent overflow left
-              if (left < padding) {
-                left = padding;
-              }
-
-              // Prevent overflow top
-              if (top < padding) {
-                top = e.clientY + 20;
-              }
-
-              tip.style.left = left + 'px';
-              tip.style.top = top + 'px';
+              tip.style.left = (e.clientX + 14) + 'px';
+              tip.style.top = (e.clientY - 34) + 'px';
             });
             cell.addEventListener('mouseleave', () => {
               tip.style.display = 'none';
             });
             
             // Highlight today
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (dateStr === todayStr) {
+              cell.style.outline = '1.5px solid #b84c27';
+              cell.style.outlineOffset = '1px';
+            }
           } else {
             cell.style.backgroundColor = CONFIG.colors[0];
           }
@@ -701,7 +758,7 @@ function buildMonthlyBars() {
     const fill = document.createElement('div');
     fill.style.width = '100%';
     fill.style.borderRadius = '3px 3px 0 0';
-    fill.style.background = m.total > 0 ? '#40c463' : '#ebedf0';
+    fill.style.background = m.total > 0 ? '#1a2535' : '#ebedf0';
     fill.style.minHeight = '3px';
     fill.style.height = Math.max(pct, 4) + '%';
     fill.title = `${m.total} activities in ${m.month}`;

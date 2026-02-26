@@ -71,7 +71,9 @@
   flex: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: #1a2535;
+  text-decoration: none;
 }
+.lb-name:hover { color: #1a2535; text-decoration: underline; }
 .lb-pts {
   flex-shrink: 0;
   font-size: .73rem; font-weight: 600;
@@ -187,7 +189,7 @@
               {% for entry in leaderboard %}
               <li class="lb-row{% if current_user.is_authenticated and entry.username == current_user.username %} lb-row-me{% endif %}">
                 <span class="lb-rank">{{ loop.index }}</span>
-                <span class="lb-name" title="{{ entry.username }}">{{ entry.username }}</span>
+                <a class="lb-name" href="{{ url_for('users.view_profile', username=entry.username) }}" title="{{ entry.username }}">{{ entry.username }}</a>
                 <span class="lb-pts">{{ entry.points }} pts</span>
               </li>
               {% endfor %}
