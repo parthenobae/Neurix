@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import time
+import threading
 from threading import Lock
 from typing import Dict, List, Optional
 from uuid import uuid4
@@ -15,7 +16,6 @@ from neurix.models import User, ModuleProgress
 from neurix.users.streak_utils import log_activity
 
 
-# Each question has: question, answer (correct), distractors (3 wrong options)
 QUESTIONS = [
     {
         "question": "Which algorithm is commonly used for binary classification and outputs probabilities using a sigmoid function?",
@@ -124,11 +124,15 @@ QUESTIONS = [
 TOTAL_ROUNDS     = 10
 POINTS_PER_ROUND = 1
 DISCONNECT_BONUS = 3
-LABELS = ["A", "B", "C", "D"]
+ROUND_TIMEOUT    = 30      # seconds before a round is declared no-winner
+LABELS           = ["A", "B", "C", "D"]
+
+
+def _completed_count(user_id: int) -> int:
+    return ModuleProgress.query.filter_by(user_id=user_id, completed=True).count()
 
 
 def _build_options(question: Dict) -> List[Dict]:
-    """Return shuffled list of {label, text, correct} for a question."""
     choices = [{"text": question["answer"], "correct": True}]
     for d in question["distractors"]:
         choices.append({"text": d, "correct": False})
@@ -137,23 +141,13 @@ def _build_options(question: Dict) -> List[Dict]:
             for i, c in enumerate(choices)]
 
 
-
-def _completed_count(user_id: int) -> int:
-    """Return number of modules this user has completed."""
-    return ModuleProgress.query.filter_by(
-        user_id=user_id, completed=True
-    ).count()
-
 class Matchmaker:
     def __init__(self) -> None:
-        self._lock = Lock()
-        self.waiting_queue: List[Dict] = []   # each entry has sid, user_id, username, progress, joined_at
-        self.rooms: Dict[str, Dict] = {}
+        self._lock  = Lock()
+        self.waiting_queue: List[Dict] = []
+        self.rooms:         Dict[str, Dict] = {}
 
-    def _pick_questions(self) -> List[Dict]:
-        pool = QUESTIONS.copy()
-        random.shuffle(pool)
-        return pool[:TOTAL_ROUNDS]
+    # ── Points & activity ──────────────────────────────────────────────────
 
     def _award_points(self, user_id: int, amount: int) -> None:
         user = User.query.get(user_id)
@@ -162,37 +156,183 @@ class Matchmaker:
         try:
             user.points += amount
             db.session.commit()
-            log_activity(user_id, 'playground')
         except Exception:
             db.session.rollback()
+
+    # ── Payload helpers ────────────────────────────────────────────────────
 
     def _scores_payload(self, room: Dict) -> Dict:
         return {p["username"]: room["scores"][p["sid"]] for p in room["players"]}
 
     def _question_payload(self, room: Dict) -> Dict:
-        q    = room["current_question"]
         opts = room["current_options"]
         return {
-            "question": q["question"],
+            "question": room["current_question"]["question"],
             "options":  [{"label": o["label"], "text": o["text"]} for o in opts],
         }
 
     def _is_correct(self, room: Dict, label: str) -> bool:
-        label = label.strip().upper()
-        for opt in room["current_options"]:
-            if opt["label"] == label and opt["correct"]:
-                return True
-        return False
+        return any(
+            o["label"] == label.strip().upper() and o["correct"]
+            for o in room["current_options"]
+        )
 
     def _correct_label(self, room: Dict) -> str:
-        for opt in room["current_options"]:
-            if opt["correct"]:
-                return opt["label"]
+        for o in room["current_options"]:
+            if o["correct"]:
+                return o["label"]
         return ""
 
+    # ── Round timeout ──────────────────────────────────────────────────────
+
+    def _start_round_timer(self, room: Dict) -> None:
+        """
+        Fire a background thread that expires the round after ROUND_TIMEOUT
+        seconds if neither player has answered correctly yet.
+        """
+        round_at_start = room["round"]
+        room_id        = room["id"]
+
+        def _expire():
+            time.sleep(ROUND_TIMEOUT)
+            with self._lock:
+                room = self.rooms.get(room_id)
+                # Only act if match is still alive and still on the same round
+                if not room or not room["active"]:
+                    return
+                if room["round"] != round_at_start:
+                    return
+                # One player answered wrong and other never answered — or neither answered.
+                # Use socketio.emit() because we're outside a request context.
+                self._resolve_round_from_thread(room)
+
+        t = threading.Thread(target=_expire, daemon=True)
+        t.start()
+
+
+    def _resolve_round_from_thread(self, room: Dict) -> None:
+        """
+        Same as _resolve_round but uses socketio.emit() — safe to call
+        from a background thread which has no SocketIO request context.
+        """
+        correct_lbl = self._correct_label(room)
+        reason_msg  = "Time's up — no one answered correctly."
+
+        socketio.emit(
+            "round_ended",
+            {
+                "round":          room["round"],
+                "round_winner":   None,
+                "correct_label":  correct_lbl,
+                "correct_answer": room["current_question"]["answer"],
+                "scores":         self._scores_payload(room),
+                "timed_out":      True,
+                "message":        reason_msg,
+            },
+            to=room["id"],
+        )
+        self._advance_round_from_thread(room)
+
+    def _advance_round_from_thread(self, room: Dict) -> None:
+        """
+        Same as _advance_round but uses socketio.emit() for background thread safety.
+        """
+        room["round"]            += 1
+        room["answered_sids"]     = set()
+        room["question_sent_at"]  = None
+
+        if room["round"] > TOTAL_ROUNDS:
+            self._finish_match_from_thread(room)
+            return
+
+        room["current_question"] = room["questions"][room["round"] - 1]
+        room["current_options"]  = _build_options(room["current_question"])
+        room["question_sent_at"] = time.time()
+
+        socketio.emit(
+            "next_round",
+            {
+                "round":        room["round"],
+                "total_rounds": TOTAL_ROUNDS,
+                "scores":       self._scores_payload(room),
+                "timeout":      ROUND_TIMEOUT,
+                **self._question_payload(room),
+            },
+            to=room["id"],
+        )
+        self._start_round_timer(room)
+
+    def _finish_match_from_thread(self, room: Dict) -> None:
+        """
+        Same as _finish_match but uses socketio.emit() for background thread safety.
+        """
+        room["active"] = False
+        scores  = room["scores"]
+        players = room["players"]
+
+        score_a = scores[players[0]["sid"]]
+        score_b = scores[players[1]["sid"]]
+
+        if   score_a > score_b: overall_winner = players[0]
+        elif score_b > score_a: overall_winner = players[1]
+        else:                   overall_winner = None
+
+        for player in players:
+            pts = scores[player["sid"]]
+            if pts > 0:
+                self._award_points(player["user_id"], pts)
+            log_activity(player["user_id"], "playground")
+
+        socketio.emit(
+            "match_ended",
+            {
+                "reason": "all_rounds_complete",
+                "scores": self._scores_payload(room),
+                "winner": overall_winner["username"] if overall_winner else None,
+                "draw":   overall_winner is None,
+            },
+            to=room["id"],
+        )
+        self.rooms.pop(room["id"], None)
+
+    # ── Core round logic ───────────────────────────────────────────────────
+
+    def _resolve_round(self, room: Dict, winner_sid: Optional[str], timed_out: bool = False) -> None:
+        """
+        Called when a round ends — either someone answered correctly,
+        both players used their one attempt and were wrong, or time ran out.
+        Emits round_ended then advances.
+        """
+        correct_lbl = self._correct_label(room)
+
+        if winner_sid:
+            winner = next(p for p in room["players"] if p["sid"] == winner_sid)
+            room["scores"][winner_sid] += POINTS_PER_ROUND
+            winner_name = winner["username"]
+            reason_msg  = f"{winner_name} answered correctly!"
+        else:
+            winner_name = None
+            reason_msg  = "Time's up — no one answered correctly." if timed_out else "Both players answered incorrectly."
+
+        emit(
+            "round_ended",
+            {
+                "round":          room["round"],
+                "round_winner":   winner_name,
+                "correct_label":  correct_lbl,
+                "correct_answer": room["current_question"]["answer"],
+                "scores":         self._scores_payload(room),
+                "timed_out":      timed_out,
+                "message":        reason_msg,
+            },
+            to=room["id"],
+        )
+        self._advance_round(room)
+
     def _advance_round(self, room: Dict) -> None:
-        room["round"] += 1
-        room["round_winner_sid"] = None
+        room["round"]         += 1
+        room["answered_sids"]  = set()    # reset per-round attempt tracking
+        room["question_sent_at"] = None
 
         if room["round"] > TOTAL_ROUNDS:
             self._finish_match(room, reason="all_rounds_complete")
@@ -200,6 +340,7 @@ class Matchmaker:
 
         room["current_question"] = room["questions"][room["round"] - 1]
         room["current_options"]  = _build_options(room["current_question"])
+        room["question_sent_at"] = time.time()
 
         emit(
             "next_round",
@@ -207,10 +348,12 @@ class Matchmaker:
                 "round":        room["round"],
                 "total_rounds": TOTAL_ROUNDS,
                 "scores":       self._scores_payload(room),
+                "timeout":      ROUND_TIMEOUT,
                 **self._question_payload(room),
             },
             to=room["id"],
         )
+        self._start_round_timer(room)
 
     def _finish_match(self, room: Dict, reason: str) -> None:
         room["active"] = False
@@ -220,12 +363,9 @@ class Matchmaker:
         score_a = scores[players[0]["sid"]]
         score_b = scores[players[1]["sid"]]
 
-        if score_a > score_b:
-            overall_winner = players[0]
-        elif score_b > score_a:
-            overall_winner = players[1]
-        else:
-            overall_winner = None
+        if   score_a > score_b: overall_winner = players[0]
+        elif score_b > score_a: overall_winner = players[1]
+        else:                   overall_winner = None
 
         for player in players:
             pts = scores[player["sid"]]
@@ -245,39 +385,19 @@ class Matchmaker:
         )
         self.rooms.pop(room["id"], None)
 
-    def _find_match(self, incoming: Dict) -> Optional[Dict]:
-        """
-        Find the best waiting opponent for incoming player.
-        Tolerance widens based on how long the incoming player would wait:
-          0-30s  → ±3 modules
-          30-60s → ±6 modules
-          60s+   → any opponent
-        We use the incoming player's own wait time (0 here since they just
-        joined) but check how long each waiter has been waiting to decide
-        tolerance for THEM — pick the waiter who has waited longest and
-        is within tolerance.
-        """
-        import time
-        now = time.time()
-        best = None
-        best_wait = -1
+    # ── Matchmaking ────────────────────────────────────────────────────────
 
+    def _find_match(self, incoming: Dict) -> Optional[Dict]:
+        now = time.time()
+        best, best_wait = None, -1
         for waiter in self.waiting_queue:
             if waiter["user_id"] == incoming["user_id"]:
                 continue
-            waited = now - waiter["joined_at"]
-            if waited >= 60:
-                tolerance = float("inf")
-            elif waited >= 30:
-                tolerance = 6
-            else:
-                tolerance = 3
-
-            diff = abs(waiter["progress"] - incoming["progress"])
+            waited    = now - waiter["joined_at"]
+            tolerance = float("inf") if waited >= 60 else (6 if waited >= 30 else 3)
+            diff      = abs(waiter["progress"] - incoming["progress"])
             if diff <= tolerance and waited > best_wait:
-                best = waiter
-                best_wait = waited
-
+                best, best_wait = waiter, waited
         return best
 
     def _start_match(self, player_one: Dict, player_two: Dict) -> None:
@@ -293,9 +413,11 @@ class Matchmaker:
             "current_question": first_q,
             "current_options":  first_opts,
             "round":            1,
-            "round_winner_sid": None,
             "scores":           {player_one["sid"]: 0, player_two["sid"]: 0},
             "active":           True,
+            # ── New fields for fair play ──────────────────────────────
+            "answered_sids":    set(),     # sids that have used their one attempt this round
+            "question_sent_at": time.time(),
         }
         self.rooms[room_id] = room_state
 
@@ -305,28 +427,30 @@ class Matchmaker:
         emit(
             "match_found",
             {
-                "room_id":         room_id,
-                "round":           1,
-                "total_rounds":    TOTAL_ROUNDS,
-                "players":         [player_one["username"], player_two["username"]],
-                "scores":          {player_one["username"]: 0, player_two["username"]: 0},
-                "question":        first_q["question"],
-                "options":         [{"label": o["label"], "text": o["text"]} for o in first_opts],
-                "p1_progress":     player_one["progress"],
-                "p2_progress":     player_two["progress"],
+                "room_id":      room_id,
+                "round":        1,
+                "total_rounds": TOTAL_ROUNDS,
+                "players":      [player_one["username"], player_two["username"]],
+                "scores":       {player_one["username"]: 0, player_two["username"]: 0},
+                "timeout":      ROUND_TIMEOUT,
+                "p1_progress":  player_one["progress"],
+                "p2_progress":  player_two["progress"],
+                **self._question_payload(room_state),
             },
             to=room_id,
         )
+        self._start_round_timer(room_state)
+
+    def _pick_questions(self) -> List[Dict]:
+        pool = QUESTIONS.copy()
+        random.shuffle(pool)
+        return pool[:TOTAL_ROUNDS]
 
     def join_queue(self, sid: str, user_id: int, username: str, progress: int) -> None:
-        import time
         with self._lock:
-            # Already waiting?
             if any(w["sid"] == sid for w in self.waiting_queue):
                 emit("queue_status", {"message": "You are already waiting for an opponent."})
                 return
-
-            # Already in a match?
             if self._find_room_by_sid(sid):
                 emit("queue_status", {"message": "You are already in a match."})
                 return
@@ -338,67 +462,67 @@ class Matchmaker:
                 "progress":  progress,
                 "joined_at": time.time(),
             }
-
             opponent = self._find_match(incoming)
 
             if opponent is None:
-                # No suitable opponent yet — add to queue
                 self.waiting_queue.append(incoming)
                 emit("queue_status", {
                     "message": f"Waiting for an opponent at your level ({progress} modules completed)..."
                 })
                 return
 
-            # Remove opponent from queue
             self.waiting_queue = [w for w in self.waiting_queue if w["sid"] != opponent["sid"]]
             self._start_match(opponent, incoming)
+
+    # ── Answer submission ──────────────────────────────────────────────────
 
     def submit_answer(self, sid: str, label: str) -> None:
         with self._lock:
             room = self._find_room_by_sid(sid)
             if not room:
-                emit("answer_result", {"correct": False, "message": "No active match found."})
+                emit("answer_result", {"correct": False, "message": "No active match found."}, to=sid)
                 return
-
             if not room["active"]:
-                emit("answer_result", {"correct": False, "message": "Match already finished."})
+                emit("answer_result", {"correct": False, "message": "Match already finished."}, to=sid)
                 return
-
             if not label:
-                emit("answer_result", {"correct": False, "message": "No option selected."})
+                emit("answer_result", {"correct": False, "message": "No option selected."}, to=sid)
                 return
 
-            if room["round_winner_sid"] is not None:
-                emit("answer_result", {"correct": False, "message": "Round already won."})
+            # ── One attempt per player per round ──────────────────────
+            if sid in room["answered_sids"]:
+                emit("answer_result", {"correct": False, "message": "You have already used your attempt this round."}, to=sid)
                 return
 
-            if self._is_correct(room, label):
-                room["round_winner_sid"] = sid
-                room["scores"][sid] += POINTS_PER_ROUND
-                winner = next(p for p in room["players"] if p["sid"] == sid)
+            # Record this player's attempt immediately — no second chances
+            room["answered_sids"].add(sid)
 
-                emit(
-                    "round_ended",
-                    {
-                        "round":          room["round"],
-                        "round_winner":   winner["username"],
-                        "correct_label":  self._correct_label(room),
-                        "correct_answer": room["current_question"]["answer"],
-                        "scores":         self._scores_payload(room),
-                    },
-                    to=room["id"],
-                )
-                self._advance_round(room)
+            correct = self._is_correct(room, label)
+
+            if correct:
+                # Winner — resolve round immediately
+                emit("answer_result", {"correct": True}, to=sid)
+                self._resolve_round(room, winner_sid=sid)
             else:
+                # Wrong — lock this player out, tell them
                 emit(
                     "answer_result",
-                    {"correct": False, "message": "Wrong answer!", "chosen": label.strip().upper()},
+                    {
+                        "correct": False,
+                        "locked":  True,       # client should lock options permanently
+                        "message": "Wrong answer. Waiting for your opponent…",
+                        "chosen":  label.strip().upper(),
+                    },
                     to=sid,
                 )
+                # If both players have now answered and both were wrong → resolve now
+                if len(room["answered_sids"]) == 2:
+                    self._resolve_round(room, winner_sid=None, timed_out=False)
+
+    # ── Disconnect ─────────────────────────────────────────────────────────
 
     def disconnect(self, sid: str) -> None:
         with self._lock:
-            # Remove from queue if waiting
             before = len(self.waiting_queue)
             self.waiting_queue = [w for w in self.waiting_queue if w["sid"] != sid]
             if len(self.waiting_queue) < before:
@@ -455,9 +579,7 @@ def handle_join_playground():
 
 @socketio.on("submit_answer")
 def handle_submit_answer(data):
-    label = ""
-    if isinstance(data, dict):
-        label = data.get("label", "")
+    label = data.get("label", "") if isinstance(data, dict) else ""
     matchmaker.submit_answer(request.sid, label)
 
 
