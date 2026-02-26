@@ -32,7 +32,9 @@ def create_app(config_class=Config):
     from neurix.playground import playground
     from neurix.learn import learn
     from neurix.datalab import datalab          # ← new
+    from neurix.calendar import calendar          # ← add this
 
+    app.register_blueprint(calendar, url_prefix='/calendar')  # ← add this
     app.register_blueprint(playground)
     app.register_blueprint(users)
     app.register_blueprint(posts)

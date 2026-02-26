@@ -1,0 +1,343 @@
+{% extends "layout.html" %}
+{% block content_col_class %}col-md-12{% endblock %}
+{% block sidebar %}{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Calendar page ─────────────────────────────────────────── */
+    .cal-header {
+        display: flex; align-items: center; gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .cal-header h2 { margin: 0; font-size: 1.4rem; }
+    .cal-nav { display: flex; gap: .4rem; }
+    .cal-nav a {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; border-radius: 8px;
+        border: 1px solid #ddd8d0; background: #faf8f4;
+        color: #1a2535; font-size: .9rem; text-decoration: none;
+        transition: background .15s;
+    }
+    .cal-nav a:hover { background: #ede9e3; }
+
+    /* grid */
+    .cal-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+    }
+    .cal-dow {
+        text-align: center; font-size: .7rem; font-weight: 600;
+        color: #9a8f85; padding: .4rem 0; text-transform: uppercase;
+    }
+    .cal-cell {
+        min-height: 80px; border-radius: 10px;
+        border: 1px solid #ede9e3; background: #faf8f4;
+        padding: .5rem .55rem; cursor: pointer;
+        transition: border-color .15s, background .15s;
+        position: relative;
+    }
+    .cal-cell:hover { border-color: #bbb5ac; background: #f0ede8; }
+    .cal-cell.today  { border-color: #4f8ef7; background: #eef5ff; }
+    .cal-cell.other-month { opacity: .38; pointer-events: none; }
+    .cal-cell.has-tasks { border-color: #a8c5f0; }
+
+    .cell-date {
+        font-size: .73rem; font-weight: 600; color: #6b7280;
+        margin-bottom: .3rem;
+    }
+    .cal-cell.today .cell-date { color: #3a70d4; }
+
+    /* pip row at bottom of cell */
+    .cell-pips {
+        display: flex; gap: 3px; flex-wrap: wrap;
+        margin-top: .3rem;
+    }
+    .pip {
+        width: 8px; height: 8px; border-radius: 50%;
+    }
+    .pip-done    { background: #22c55e; }
+    .pip-pending { background: #f59e0b; }
+    .pip-skipped { background: #d1d5db; }
+
+    /* task panel */
+    .task-panel {
+        position: fixed; right: 0; top: 0; bottom: 0;
+        width: 360px; background: #fff;
+        box-shadow: -4px 0 24px rgba(0,0,0,.10);
+        z-index: 1050;
+        display: flex; flex-direction: column;
+        transform: translateX(100%);
+        transition: transform .25s cubic-bezier(.4,0,.2,1);
+    }
+    .task-panel.open { transform: translateX(0); }
+    .task-panel-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 1.1rem 1.3rem;
+        border-bottom: 1px solid #ede9e3;
+    }
+    .task-panel-head h5 { margin: 0; font-size: 1rem; }
+    .task-panel-body { flex: 1; overflow-y: auto; padding: 1rem 1.3rem; }
+    .task-panel-foot { padding: .9rem 1.3rem; border-top: 1px solid #ede9e3; }
+
+    /* task item */
+    .task-item {
+        display: flex; align-items: flex-start; gap: .7rem;
+        padding: .6rem .75rem;
+        border-radius: 9px; border: 1px solid #ede9e3;
+        background: #faf8f4; margin-bottom: .5rem;
+    }
+    .task-item.done    { opacity: .55; }
+    .task-item.skipped { opacity: .38; }
+    .task-check {
+        flex-shrink: 0; margin-top: .15rem;
+        width: 18px; height: 18px; border-radius: 50%;
+        border: 2px solid #c5bfb7; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: background .15s, border-color .15s;
+    }
+    .task-check.done    { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .task-check.skipped { background: #d1d5db; border-color: #d1d5db; }
+    .task-body { flex: 1; min-width: 0; }
+    .task-title { font-size: .85rem; font-weight: 500; color: #1a2535; }
+    .task-desc  { font-size: .77rem; color: #9a8f85; margin-top: .1rem; }
+    .task-badge {
+        font-size: .65rem; padding: .15rem .45rem;
+        border-radius: 99px; font-weight: 600;
+        background: #e0edff; color: #3a70d4;
+        margin-left: .3rem;
+    }
+    .task-del {
+        flex-shrink: 0; color: #c0b8b0; cursor: pointer;
+        font-size: .8rem; margin-top: .15rem;
+        background: none; border: none; padding: 0;
+        transition: color .15s;
+    }
+    .task-del:hover { color: #e53e3e; }
+
+    /* add-task form */
+    .add-form { display: flex; flex-direction: column; gap: .6rem; }
+    .add-form input, .add-form textarea {
+        width: 100%; padding: .5rem .7rem;
+        border: 1px solid #ddd8d0; border-radius: 8px;
+        font-size: .85rem; background: #faf8f4;
+        outline: none; resize: vertical;
+    }
+    .add-form input:focus, .add-form textarea:focus {
+        border-color: #4f8ef7;
+    }
+    .btn-add-task {
+        padding: .5rem 1rem; border-radius: 8px;
+        background: #1a2535; color: #fff; border: none;
+        font-size: .85rem; cursor: pointer;
+        transition: background .15s;
+    }
+    .btn-add-task:hover { background: #2c3e55; }
+
+    /* roadmap sidebar strip */
+    .rm-strip {
+        display: flex; flex-wrap: wrap; gap: .5rem;
+        margin-bottom: 1rem;
+    }
+    .rm-chip {
+        display: inline-flex; align-items: center; gap: .4rem;
+        padding: .3rem .75rem; border-radius: 99px;
+        background: #e0edff; color: #3a70d4;
+        font-size: .78rem; font-weight: 600;
+        text-decoration: none;
+    }
+    .rm-chip:hover { background: #c7deff; color: #2a5bad; }
+</style>
+
+<div class="cal-header">
+    <div class="cal-nav">
+        <a href="{{ url_for('calendar.index', year=prev_year, month=prev_month) }}" title="Previous month">&#8249;</a>
+        <a href="{{ url_for('calendar.index', year=today.year, month=today.month) }}" title="Today">●</a>
+        <a href="{{ url_for('calendar.index', year=next_year, month=next_month) }}" title="Next month">&#8250;</a>
+    </div>
+    <h2>{{ month_name }} {{ year }}</h2>
+    <a href="{{ url_for('calendar.roadmaps') }}" class="rm-chip ml-auto">🗺 Roadmaps</a>
+</div>
+
+<!-- Active roadmaps chips -->
+{% if active_roadmaps %}
+<div class="rm-strip">
+    {% for ur, rm in active_roadmaps %}
+    <a href="{{ url_for('calendar.roadmaps') }}" class="rm-chip" title="{{ rm.title }}">📌 {{ rm.title }}</a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Day-of-week headers -->
+<div class="cal-grid" id="calGrid">
+    {% for dow in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+    <div class="cal-dow">{{ dow }}</div>
+    {% endfor %}
+
+    {% for cell in calendar_cells %}
+    <div class="cal-cell {% if not cell.in_month %}other-month{% endif %} {% if cell.date == today %}today{% endif %}"
+         data-date="{{ cell.date.isoformat() }}"
+         onclick="openPanel('{{ cell.date.isoformat() }}')">
+        <div class="cell-date">{{ cell.date.day }}</div>
+        <div class="cell-pips" id="pips-{{ cell.date.isoformat() }}"></div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Sliding task panel -->
+<div class="task-panel" id="taskPanel">
+    <div class="task-panel-head">
+        <h5 id="panelDate">—</h5>
+        <button onclick="closePanel()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#9a8f85;">✕</button>
+    </div>
+    <div class="task-panel-body" id="panelBody">
+        <p style="color:#9a8f85;font-size:.85rem;">Loading…</p>
+    </div>
+    <div class="task-panel-foot">
+        <form class="add-form" id="addForm" onsubmit="submitTask(event)">
+            <input type="hidden" id="addDate" name="date">
+            <input type="text" name="title" placeholder="New task…" id="taskTitle" required>
+            <textarea name="description" rows="2" placeholder="Description (optional)" id="taskDesc"></textarea>
+            <button class="btn-add-task" type="submit">Add Task</button>
+        </form>
+    </div>
+</div>
+<div id="panelOverlay" onclick="closePanel()"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:1040;"></div>
+
+<script>
+    const DAY_MAP   = {{ day_map | safe }};
+    const ADD_URL   = "{{ url_for('calendar.add_task') }}";
+    const TASKS_URL = "{{ url_for('calendar.tasks_for_day', iso_date='DATE') }}";
+
+    /* ── render pips on load ──────────────────────────────────────────── */
+    document.querySelectorAll('.cal-cell[data-date]').forEach(cell => {
+        const d    = cell.dataset.date;
+        const info = DAY_MAP[d];
+        if (!info) return;
+        const pips = cell.querySelector('.cell-pips');
+        cell.classList.add('has-tasks');
+        for (let i = 0; i < Math.min(info.done,    5); i++) pips.insertAdjacentHTML('beforeend','<span class="pip pip-done"></span>');
+        for (let i = 0; i < Math.min(info.pending, 5); i++) pips.insertAdjacentHTML('beforeend','<span class="pip pip-pending"></span>');
+        for (let i = 0; i < Math.min(info.skipped, 5); i++) pips.insertAdjacentHTML('beforeend','<span class="pip pip-skipped"></span>');
+    });
+
+    /* ── panel open/close ─────────────────────────────────────────────── */
+    let currentDate = null;
+
+    function openPanel(isoDate) {
+        currentDate = isoDate;
+        document.getElementById('panelDate').textContent = formatDate(isoDate);
+        document.getElementById('addDate').value = isoDate;
+        document.getElementById('panelBody').innerHTML = '<p style="color:#9a8f85;font-size:.85rem;">Loading…</p>';
+        document.getElementById('taskPanel').classList.add('open');
+        document.getElementById('panelOverlay').style.display = 'block';
+        loadTasks(isoDate);
+    }
+
+    function closePanel() {
+        document.getElementById('taskPanel').classList.remove('open');
+        document.getElementById('panelOverlay').style.display = 'none';
+        currentDate = null;
+    }
+
+    function formatDate(iso) {
+        const d = new Date(iso + 'T12:00:00');
+        return d.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    }
+
+    /* ── load tasks for a day ─────────────────────────────────────────── */
+    async function loadTasks(isoDate) {
+        const url = TASKS_URL.replace('DATE', isoDate);
+        const res  = await fetch(url);
+        const tasks = await res.json();
+        renderTasks(tasks, isoDate);
+    }
+
+    function renderTasks(tasks, isoDate) {
+        const body = document.getElementById('panelBody');
+        if (!tasks.length) {
+            body.innerHTML = '<p style="color:#9a8f85;font-size:.85rem;font-style:italic;">No tasks yet — add one below.</p>';
+            return;
+        }
+        body.innerHTML = tasks.map(t => `
+    <div class="task-item ${t.status}" id="task-${t.id}">
+      <div class="task-check ${t.status}" onclick="cycleStatus(${t.id})">
+        ${t.status==='done' ? '✓' : ''}
+      </div>
+      <div class="task-body">
+        <div class="task-title">
+          ${escHtml(t.title)}
+          ${t.source==='roadmap' ? '<span class="task-badge">roadmap</span>' : ''}
+        </div>
+        ${t.description ? `<div class="task-desc">${escHtml(t.description)}</div>` : ''}
+      </div>
+      <button class="task-del" onclick="deleteTask(${t.id})" title="Remove">✕</button>
+    </div>
+  `).join('');
+    }
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    /* ── cycle task status ───────────────────────────────────────────── */
+    async function cycleStatus(id) {
+        const url = `/calendar/tasks/${id}/status`;
+        const res  = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+        const t    = await res.json();
+        if (currentDate) loadTasks(currentDate);
+        refreshPips(t.date);
+    }
+
+    /* ── delete task ─────────────────────────────────────────────────── */
+    async function deleteTask(id) {
+        const url = `/calendar/tasks/${id}/delete`;
+        await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}});
+        if (currentDate) loadTasks(currentDate);
+        refreshPips(currentDate);
+    }
+
+    /* ── add task ────────────────────────────────────────────────────── */
+    async function submitTask(e) {
+        e.preventDefault();
+        const form = e.target;
+        const body = {
+            date:        form.date.value,
+            title:       form.title.value,
+            description: form.description.value,
+        };
+        const res = await fetch(ADD_URL, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(body),
+        });
+        if (res.ok) {
+            form.title.value = '';
+            form.description.value = '';
+            loadTasks(currentDate);
+            refreshPips(currentDate);
+        }
+    }
+
+    /* ── refresh pips for a date ─────────────────────────────────────── */
+    async function refreshPips(isoDate) {
+        if (!isoDate) return;
+        const url  = TASKS_URL.replace('DATE', isoDate);
+        const res  = await fetch(url);
+        const tasks = await res.json();
+
+        const cell = document.querySelector(`.cal-cell[data-date="${isoDate}"]`);
+        if (!cell) return;
+        const pips = cell.querySelector('.cell-pips');
+        pips.innerHTML = '';
+        const counts = {done:0, pending:0, skipped:0};
+        tasks.forEach(t => counts[t.status]++);
+        for (let i=0;i<Math.min(counts.done,5);i++)    pips.insertAdjacentHTML('beforeend','<span class="pip pip-done"></span>');
+        for (let i=0;i<Math.min(counts.pending,5);i++)  pips.insertAdjacentHTML('beforeend','<span class="pip pip-pending"></span>');
+        for (let i=0;i<Math.min(counts.skipped,5);i++)  pips.insertAdjacentHTML('beforeend','<span class="pip pip-skipped"></span>');
+        if (tasks.length) cell.classList.add('has-tasks');
+        else cell.classList.remove('has-tasks');
+    }
+</script>
+{% endblock %}
