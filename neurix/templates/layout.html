@@ -27,8 +27,8 @@
     /* ── Leaderboard sidebar ───────────────────────── */
     .sidebar-divider {
       border: none;
-      border-top: 1px solid #e8e4de;
-      margin: 1.2rem 0;
+      border-top: 2px solid #e8e4de;
+      margin: 0.5rem 0;
     }
     .sidebar-sub {
       font-size: .71rem; color: #9a8f85;
@@ -174,16 +174,9 @@
           <li><a href="#">Resources</a></li>
         </ul>
 
-        <!-- Divider -->
         <hr class="sidebar-divider">
-
         <!-- Leaderboard section -->
-        <p class="sidebar-label" style="margin-bottom:.35rem;">Community</p>
-        <h4 class="sidebar-heading" style="margin-bottom:.3rem;"> Leaderboard</h4>
-        <p class="sidebar-sub">
-          Top {{ leaderboard | length }} player{{ 's' if leaderboard | length != 1 }} by points
-        </p>
-
+        <h5 class="" style="margin-bottom:.3rem;"> Leaderboard</h4>
         {% if leaderboard %}
         <ul class="lb-list">
           {% for entry in leaderboard %}
