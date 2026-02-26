@@ -197,16 +197,103 @@ class Matchmaker:
             time.sleep(ROUND_TIMEOUT)
             with self._lock:
                 room = self.rooms.get(room_id)
-                # Only act if the match is still alive and still on the same round
+                # Only act if match is still alive and still on the same round
                 if not room or not room["active"]:
                     return
                 if room["round"] != round_at_start:
                     return
-                # Neither player answered correctly — advance with no winner
-                self._resolve_round(room, winner_sid=None, timed_out=True)
+                # One player answered wrong and other never answered — or neither answered.
+                # Use socketio.emit() because we're outside a request context.
+                self._resolve_round_from_thread(room)
 
         t = threading.Thread(target=_expire, daemon=True)
         t.start()
+
+
+    def _resolve_round_from_thread(self, room: Dict) -> None:
+        """
+        Same as _resolve_round but uses socketio.emit() — safe to call
+        from a background thread which has no SocketIO request context.
+        """
+        correct_lbl = self._correct_label(room)
+        reason_msg  = "Time's up — no one answered correctly."
+
+        socketio.emit(
+            "round_ended",
+            {
+                "round":          room["round"],
+                "round_winner":   None,
+                "correct_label":  correct_lbl,
+                "correct_answer": room["current_question"]["answer"],
+                "scores":         self._scores_payload(room),
+                "timed_out":      True,
+                "message":        reason_msg,
+            },
+            to=room["id"],
+        )
+        self._advance_round_from_thread(room)
+
+    def _advance_round_from_thread(self, room: Dict) -> None:
+        """
+        Same as _advance_round but uses socketio.emit() for background thread safety.
+        """
+        room["round"]            += 1
+        room["answered_sids"]     = set()
+        room["question_sent_at"]  = None
+
+        if room["round"] > TOTAL_ROUNDS:
+            self._finish_match_from_thread(room)
+            return
+
+        room["current_question"] = room["questions"][room["round"] - 1]
+        room["current_options"]  = _build_options(room["current_question"])
+        room["question_sent_at"] = time.time()
+
+        socketio.emit(
+            "next_round",
+            {
+                "round":        room["round"],
+                "total_rounds": TOTAL_ROUNDS,
+                "scores":       self._scores_payload(room),
+                "timeout":      ROUND_TIMEOUT,
+                **self._question_payload(room),
+            },
+            to=room["id"],
+        )
+        self._start_round_timer(room)
+
+    def _finish_match_from_thread(self, room: Dict) -> None:
+        """
+        Same as _finish_match but uses socketio.emit() for background thread safety.
+        """
+        room["active"] = False
+        scores  = room["scores"]
+        players = room["players"]
+
+        score_a = scores[players[0]["sid"]]
+        score_b = scores[players[1]["sid"]]
+
+        if   score_a > score_b: overall_winner = players[0]
+        elif score_b > score_a: overall_winner = players[1]
+        else:                   overall_winner = None
+
+        for player in players:
+            pts = scores[player["sid"]]
+            if pts > 0:
+                self._award_points(player["user_id"], pts)
+            log_activity(player["user_id"], "playground")
+
+        socketio.emit(
+            "match_ended",
+            {
+                "reason": "all_rounds_complete",
+                "scores": self._scores_payload(room),
+                "winner": overall_winner["username"] if overall_winner else None,
+                "draw":   overall_winner is None,
+            },
+            to=room["id"],
+        )
+        self.rooms.pop(room["id"], None)
 
     # ── Core round logic ───────────────────────────────────────────────────
 
