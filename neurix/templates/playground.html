@@ -275,6 +275,43 @@
   .pg-feedback.error   { color: #c0392b; }
   .pg-feedback.info    { color: #2980b9; }
 
+  /* Round countdown timer */
+  .pg-timer {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: #6b6860;
+  }
+  .pg-timer.visible { display: flex; }
+  .timer-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: #e2ddd6;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%;
+    background: #27a35a;
+    width: 100%;
+    transition: width 1s linear, background 0.3s;
+  }
+  .timer-bar.warning  { background: #e6952a; }
+  .timer-bar.danger   { background: #c0392b; }
+  .timer-label {
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 0.78rem;
+    min-width: 28px;
+    text-align: right;
+    color: #1a2535;
+  }
+  /* Locked-out state for wrong answer */
+  .pg-feedback.locked { color: #9a8f85; font-style: italic; }
+
+
   /* Match result */
   .pg-result { display: none; margin-top: 1.25rem; background: #f7f5f0; border: 1px solid #e2ddd6; border-radius: 8px; padding: 1.25rem 1.5rem; }
   .pg-result.visible { display: block; }
@@ -328,7 +365,7 @@
   <div class="pg-header">
     <div>
       <p class="pg-title">ML Quiz — 1v1 Battle</p>
-      <p class="pg-subtitle">10 rounds · First correct answer wins the round · MCQ format</p>
+      <p class="pg-subtitle">10 rounds · One attempt per player · 30s timer per round · MCQ format</p>
     </div>
   </div>
 
@@ -391,6 +428,11 @@
       </div>
       <p id="question-text" class="question-text"></p>
       <div id="options-grid" class="options-grid"></div>
+      <!-- Round countdown timer -->
+      <div id="pg-timer" class="pg-timer">
+        <div class="timer-bar-wrap"><div id="timer-bar" class="timer-bar"></div></div>
+        <span id="timer-label" class="timer-label">30s</span>
+      </div>
       <div id="pg-feedback" class="pg-feedback"></div>
     </div>
 
@@ -420,6 +462,9 @@
   const questionText   = document.getElementById('question-text');
   const optionsGrid    = document.getElementById('options-grid');
   const pgFeedback     = document.getElementById('pg-feedback');
+  const pgTimer        = document.getElementById('pg-timer');
+  const timerBar       = document.getElementById('timer-bar');
+  const timerLabel     = document.getElementById('timer-label');
   const pgResult       = document.getElementById('pg-result');
   const resultHeadline = document.getElementById('result-headline');
   const resultSub      = document.getElementById('result-sub');
@@ -429,12 +474,15 @@
 
   const socket = io();
   const MY_USERNAME = '{{ current_user.username if current_user.is_authenticated else "" }}';
+
   let inMatch      = false;
   let players      = [];
   let myUsername   = '';
   let totalRounds  = 10;
-  let locked       = false;
-  let aiGenerated  = false;
+  let roundTimeout = 30;
+  let locked       = false;         // true when options are disabled for this player
+  let usedAttempt  = false;         // true once this player has submitted this round
+  let timerInterval = null;
 
   /* ── Helpers ──────────────────────────────────────────────── */
   const setStatus = (msg, cls = '') => {
@@ -458,32 +506,84 @@
     }).join('');
   };
 
+  /* ── Countdown timer ──────────────────────────────────────── */
+  const startTimer = (seconds) => {
+    stopTimer();
+    let remaining = seconds;
+    pgTimer.classList.add('visible');
+    timerBar.style.transition = 'none';
+    timerBar.style.width = '100%';
+    timerBar.className = 'timer-bar';
+    timerLabel.textContent = `${remaining}s`;
+
+    // Force reflow so transition kicks in cleanly
+    timerBar.offsetHeight;
+    timerBar.style.transition = `width ${seconds}s linear`;
+    timerBar.style.width = '0%';
+
+    timerInterval = setInterval(() => {
+      remaining -= 1;
+      timerLabel.textContent = `${remaining}s`;
+      if (remaining <= 10) timerBar.classList.add('warning');
+      if (remaining <= 5)  timerBar.classList.add('danger');
+      if (remaining <= 0)  stopTimer();
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    pgTimer.classList.remove('visible');
+    timerBar.style.transition = 'none';
+    timerBar.style.width = '100%';
+    timerBar.className = 'timer-bar';
+  };
+
+  /* ── Options ──────────────────────────────────────────────── */
   const buildOptions = (options) => {
     optionsGrid.innerHTML = '';
+    usedAttempt = false;
+    locked      = false;
+
     options.forEach(opt => {
       const btn = document.createElement('button');
       btn.className = 'option-btn';
       btn.dataset.label = opt.label;
       btn.innerHTML = `<span class="option-label">${opt.label}</span><span>${opt.text}</span>`;
       btn.addEventListener('click', () => {
-        if (locked || !inMatch) return;
-        socket.emit('submit_answer', { label: opt.label });
+        // Block if already used attempt OR globally locked (round over)
+        if (locked || usedAttempt || !inMatch) return;
+
+        // Mark attempt used immediately — no second click possible
+        usedAttempt = true;
+        lockOptionsForPlayer();
+
         document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
+        socket.emit('submit_answer', { label: opt.label });
       });
       optionsGrid.appendChild(btn);
     });
   };
 
+  // Lock only THIS player's options (they used their attempt)
+  const lockOptionsForPlayer = () => {
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+  };
+
+  // Hard lock — round is fully resolved, show correct answer
   const lockOptions = () => {
     locked = true;
     document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
   };
 
-  const highlightResult = (correctLabel) => {
+  const highlightResult = (correctLabel, myChosenLabel) => {
     document.querySelectorAll('.option-btn').forEach(btn => {
       btn.classList.remove('selected');
-      if (btn.dataset.label === correctLabel) btn.classList.add('correct');
+      if (btn.dataset.label === correctLabel) {
+        btn.classList.add('correct');
+      } else if (myChosenLabel && btn.dataset.label === myChosenLabel) {
+        btn.classList.add('wrong');
+      }
     });
   };
 
@@ -497,7 +597,9 @@
   };
 
   const resetUI = () => {
-    inMatch = false; locked = false; players = []; myUsername = ''; aiGenerated = false;
+    inMatch = false; locked = false; usedAttempt = false;
+    players = []; myUsername = '';
+    stopTimer();
     pgMeta.classList.remove('visible');
     progressWrap.classList.remove('visible');
     questionArea.classList.remove('visible');
@@ -509,6 +611,9 @@
     progressBar.style.width = '0%';
   };
 
+  // Track which option the player chose this round (for highlight on round_ended)
+  let myChosenLabel = null;
+
   /* ── Join ─────────────────────────────────────────────────── */
   btnJoin.addEventListener('click', () => {
     resetUI();
@@ -519,7 +624,6 @@
 
   /* ── Socket events ────────────────────────────────────────── */
   socket.on('queue_status', ({ message }) => {
-    // Show the generating loader when AI is preparing questions
     if (message && message.includes('Generating questions with AI')) {
       setStatus('Opponent found!', 'waiting');
       pgGenerating.classList.add('visible');
@@ -529,11 +633,11 @@
   });
 
   socket.on('match_found', (payload) => {
-    inMatch = true; locked = false;
-    players = payload.players;
-    myUsername = MY_USERNAME;
-    totalRounds = payload.total_rounds;
-    aiGenerated = payload.ai_generated || false;
+    inMatch = true; locked = false; usedAttempt = false; myChosenLabel = null;
+    players      = payload.players;
+    myUsername   = MY_USERNAME;
+    totalRounds  = payload.total_rounds;
+    roundTimeout = payload.timeout || 30;
 
     pgGenerating.classList.remove('visible');
     pgMeta.classList.add('visible');
@@ -541,12 +645,11 @@
     pgResult.classList.remove('visible');
     btnJoin.disabled = true;
 
-    if (aiGenerated) aiBadge.style.display = 'inline-flex';
-
     updateMeta(payload.round, payload.scores);
     questionText.textContent = payload.question;
     buildOptions(payload.options);
     questionArea.classList.add('visible');
+    startTimer(roundTimeout);
 
     const oppProgress = MY_USERNAME === payload.players[0]
       ? payload.p2_progress : payload.p1_progress;
@@ -554,41 +657,54 @@
     setFeedback('');
   });
 
-  socket.on('answer_result', ({ message, chosen }) => {
-    if (chosen) {
-      document.querySelectorAll('.option-btn').forEach(btn => {
-        btn.classList.remove('selected');
-        if (btn.dataset.label === chosen) {
-          btn.classList.add('wrong');
-          setTimeout(() => btn.classList.remove('wrong'), 700);
-        }
-      });
+  socket.on('answer_result', (payload) => {
+    // Server confirmed our submission
+    if (payload.correct) {
+      // Correct — round_ended will follow immediately from server
+      setFeedback('✓ Correct!', 'success');
+    } else if (payload.locked) {
+      // Wrong and now locked out — wait for opponent or timeout
+      myChosenLabel = payload.chosen || null;
+      setFeedback(payload.message || 'Wrong. Waiting for your opponent…', 'locked');
     }
-    setFeedback(message || 'Wrong — try again.', 'error');
   });
 
   socket.on('round_ended', (payload) => {
+    stopTimer();
     locked = true;
     lockOptions();
-    highlightResult(payload.correct_label);
+    highlightResult(payload.correct_label, myChosenLabel);
     updateMeta(payload.round, payload.scores);
-    setFeedback(
-      `${payload.round_winner} answered correctly! (${payload.correct_label}: ${payload.correct_answer})`,
-      'success'
-    );
-    setStatus(`Round ${payload.round} won by ${payload.round_winner}`, 'active');
+    myChosenLabel = null;
+
+    if (payload.round_winner) {
+      setFeedback(
+        `${payload.message} (${payload.correct_label}: ${payload.correct_answer})`,
+        'success'
+      );
+      setStatus(`Round ${payload.round} won by ${payload.round_winner}`, 'active');
+    } else {
+      setFeedback(
+        `${payload.message} — Answer was ${payload.correct_label}: ${payload.correct_answer}`,
+        'error'
+      );
+      setStatus(`Round ${payload.round} — No winner`, 'active');
+    }
   });
 
   socket.on('next_round', (payload) => {
-    locked = false;
+    locked = false; usedAttempt = false; myChosenLabel = null;
+    roundTimeout = payload.timeout || 30;
     updateMeta(payload.round, payload.scores);
     questionText.textContent = payload.question;
     buildOptions(payload.options);
     setFeedback('');
     setStatus(`Round ${payload.round} of ${payload.total_rounds}`, 'active');
+    startTimer(roundTimeout);
   });
 
   socket.on('match_ended', (payload) => {
+    stopTimer();
     resetUI();
     btnJoin.disabled = false;
 
