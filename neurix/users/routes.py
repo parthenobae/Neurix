@@ -79,7 +79,7 @@ def account():
     levels_unlocked  = len(current_user.level_unlocks) + 1
 
     response = make_response(render_template(
-        'account.html',
+        'profile_account.html',
         title='Account',
         image_file=image_file,
         form=form,
@@ -157,3 +157,48 @@ def reset_token(token):
         flash('Your password has been updated! You are now able to log in', 'success')
         return redirect(url_for('users.login'))
     return render_template('reset_token.html', title='Reset Password', form=form)
+
+
+@users.route("/profile/<string:username>")
+def view_profile(username):
+    """Public read-only profile page for any user."""
+    import json
+    from neurix.users.streak_utils import (
+        compute_streak, get_heatmap_data,
+        get_activity_summary, get_monthly_counts
+    )
+    from neurix.models import ModuleProgress, LevelUnlock
+
+    profile_user = User.query.filter_by(username=username).first_or_404()
+
+    image_file = url_for(
+        'static', filename='profile_pics/' + profile_user.image_file
+    )
+
+    current_streak, longest_streak = compute_streak(profile_user.id)
+    heatmap_data     = get_heatmap_data(profile_user.id)
+    activity_summary = get_activity_summary(profile_user.id)
+    monthly_counts   = get_monthly_counts(profile_user.id, months=6)
+
+    modules_done    = ModuleProgress.query.filter_by(
+        user_id=profile_user.id, completed=True
+    ).count()
+    levels_unlocked = LevelUnlock.query.filter_by(
+        user_id=profile_user.id
+    ).count() + 1
+
+    return render_template(
+        'profile_account.html',
+        title=f"{profile_user.username}'s Profile",
+        image_file=image_file,
+        form=None,                          # no edit form
+        view_profile=True,                  # read-only flag
+        profile_user=profile_user,          # the user being viewed
+        current_streak=current_streak,
+        longest_streak=longest_streak,
+        heatmap_json=json.dumps(heatmap_data),
+        monthly_json=json.dumps(monthly_counts),
+        activity_summary=activity_summary,
+        modules_done=modules_done,
+        levels_unlocked=levels_unlocked,
+    )

@@ -22,6 +22,70 @@
   {% else %}
     <title>Neurix</title>
   {% endif %}
+
+<style>
+/* ── Leaderboard sidebar ───────────────────────── */
+.sidebar-divider {
+  border: none;
+  border-top: 1px solid #e8e4de;
+  margin: 1.2rem 0;
+}
+.sidebar-sub {
+  font-size: .71rem; color: #9a8f85;
+  margin: -.25rem 0 .85rem;
+  letter-spacing: .01em;
+}
+.lb-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: .35rem;
+}
+.lb-row {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .5rem .65rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  background: #faf8f4;
+  border: 1px solid #ede9e3;
+  transition: background .15s, border-color .15s;
+}
+.lb-row:hover { background: #f0ede8; border-color: #ddd8d0; }
+.lb-row-me {
+  background: #eef5ff;
+  border-color: #bcd4f0;
+  font-weight: 600;
+}
+.lb-rank {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #1a2535;
+  color: #fff;
+  font-size: .66rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: 0;
+}
+.lb-list li:nth-child(1) .lb-rank { background: #c9a227; }
+.lb-list li:nth-child(2) .lb-rank { background: #8e8e8e; }
+.lb-list li:nth-child(3) .lb-rank { background: #a05c2a; }
+.lb-name {
+  flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #1a2535;
+  text-decoration: none;
+}
+.lb-name:hover { color: #1a2535; text-decoration: underline; }
+.lb-pts {
+  flex-shrink: 0;
+  font-size: .73rem; font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.lb-empty {
+  font-size: .8rem; color: #9a8f85;
+  margin: .4rem 0 .2rem; font-style: italic;
+}
+</style>
+
 </head>
 <body>
 <style>
@@ -98,15 +162,42 @@
       <!-- Sidebar — override this block with nothing to hide it -->
       {% block sidebar %}
       <div class="col-md-4">
-        <aside class="sidebar-section">
-          <p class="sidebar-label">On this site</p>
-          <h4 class="sidebar-heading">Explore</h4>
-          <ul class="sidebar-list">
+        <aside class="sidebar-section" style="padding: 1.3rem 1.2rem;">
+
+          <!-- Explore section -->
+          <p class="sidebar-label" style="margin-bottom:.35rem;">On this site</p>
+          <h4 class="sidebar-heading" style="margin-bottom:.75rem;">Explore</h4>
+          <ul class="sidebar-list" style="margin-bottom:0;">
             <li><a href="#">Latest Posts</a></li>
             <li><a href="#">Announcements</a></li>
             <li><a href="#">Calendars</a></li>
             <li><a href="#">Resources</a></li>
           </ul>
+
+          <!-- Divider -->
+          <hr class="sidebar-divider">
+
+          <!-- Leaderboard section -->
+          <p class="sidebar-label" style="margin-bottom:.35rem;">Community</p>
+          <h4 class="sidebar-heading" style="margin-bottom:.3rem;">🏆 Leaderboard</h4>
+          <p class="sidebar-sub">
+            Top {{ leaderboard | length }} player{{ 's' if leaderboard | length != 1 }} by points
+          </p>
+
+          {% if leaderboard %}
+            <ul class="lb-list">
+              {% for entry in leaderboard %}
+              <li class="lb-row{% if current_user.is_authenticated and entry.username == current_user.username %} lb-row-me{% endif %}">
+                <span class="lb-rank">{{ loop.index }}</span>
+                <a class="lb-name" href="{{ url_for('users.view_profile', username=entry.username) }}" title="{{ entry.username }}">{{ entry.username }}</a>
+                <span class="lb-pts">{{ entry.points }} pts</span>
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="lb-empty">No activity yet — be the first!</p>
+          {% endif %}
+
         </aside>
       </div>
       {% endblock sidebar %}

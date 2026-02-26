@@ -39,5 +39,24 @@ def create_app(config_class=Config):
     app.register_blueprint(main)
     app.register_blueprint(learn)
     app.register_blueprint(datalab)             # ← new
+    
+        # ── Global leaderboard context processor ─────────────────────────────────
+    # Injects top-10 leaderboard into every template automatically.
+    # Ordered by points desc, then username asc for tiebreaking.
+    @app.context_processor
+    def inject_leaderboard():
+        from neurix.models import User
+        top_users = (
+            User.query
+            .order_by(User.points.desc(), User.username.asc())
+            .limit(10)
+            .all()
+        )
+        return {
+            "leaderboard": [
+                {"username": u.username, "points": u.points}
+                for u in top_users
+            ]
+        }
 
     return app

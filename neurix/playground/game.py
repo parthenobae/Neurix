@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
-import logging
-import os
 import random
+import time
 from threading import Lock
 from typing import Dict, List, Optional
 from uuid import uuid4
@@ -13,27 +11,45 @@ from flask_login import current_user
 from flask_socketio import emit, join_room, leave_room
 
 from neurix import db, socketio
-from neurix.models import User
+from neurix.models import User, ModuleProgress
+from neurix.users.streak_utils import log_activity
 
-try:
-    from groq import Groq
-    _groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-except Exception:
-    _groq_client = None
 
-log = logging.getLogger(__name__)
-
-# ── Fallback questions ─────────────────────────────────────────────────────────
-_FALLBACK_QUESTIONS = [
+# Each question has: question, answer (correct), distractors (3 wrong options)
+QUESTIONS = [
     {
         "question": "Which algorithm is commonly used for binary classification and outputs probabilities using a sigmoid function?",
         "answer": "Logistic Regression",
         "distractors": ["Linear Regression", "Decision Tree", "K-Nearest Neighbors"],
     },
     {
+        "question": "What does overfitting mean in machine learning?",
+        "answer": "The model memorises training data and fails to generalise",
+        "distractors": [
+            "The model is too simple to capture patterns",
+            "The model converges too slowly",
+            "The model uses too few features",
+        ],
+    },
+    {
+        "question": "Which validation strategy repeatedly splits data into training and validation folds?",
+        "answer": "K-Fold Cross Validation",
+        "distractors": ["Hold-Out Validation", "Leave-One-Out", "Bootstrap Sampling"],
+    },
+    {
         "question": "In gradient descent, what parameter controls the step size of each update?",
         "answer": "Learning Rate",
         "distractors": ["Momentum", "Batch Size", "Weight Decay"],
+    },
+    {
+        "question": "Which metric is often preferred over accuracy for imbalanced binary datasets?",
+        "answer": "F1 Score",
+        "distractors": ["Mean Squared Error", "R² Score", "Log Loss"],
+    },
+    {
+        "question": "What type of neural network layer connects every neuron to every neuron in the next layer?",
+        "answer": "Fully Connected (Dense) Layer",
+        "distractors": ["Convolutional Layer", "Pooling Layer", "Recurrent Layer"],
     },
     {
         "question": "Which technique randomly drops neurons during training to reduce overfitting?",
@@ -48,7 +64,7 @@ _FALLBACK_QUESTIONS = [
     {
         "question": "Which unsupervised learning algorithm groups data points into k clusters?",
         "answer": "K-Means Clustering",
-        "distractors": ["DBSCAN", "PCA", "Linear Discriminant Analysis"],
+        "distractors": ["DBSCAN", "Principal Component Analysis", "Linear Discriminant Analysis"],
     },
     {
         "question": "Which algorithm builds an ensemble of decision trees using random feature subsets?",
@@ -56,24 +72,52 @@ _FALLBACK_QUESTIONS = [
         "distractors": ["AdaBoost", "Support Vector Machine", "Naive Bayes"],
     },
     {
-        "question": "Which activation function outputs values strictly between 0 and 1?",
+        "question": "What term describes the error caused by overly simple assumptions in a learning algorithm?",
+        "answer": "Bias",
+        "distractors": ["Variance", "Entropy", "Regularisation"],
+    },
+    {
+        "question": "Which activation function outputs values strictly between 0 and 1, used in binary classification output layers?",
         "answer": "Sigmoid",
         "distractors": ["ReLU", "Tanh", "Softmax"],
     },
     {
-        "question": "What is the name of the optimisation algorithm that adapts learning rates per parameter?",
+        "question": "What is the name of the optimisation algorithm that adapts learning rates for each parameter individually?",
         "answer": "Adam",
         "distractors": ["SGD", "RMSProp", "Adagrad"],
     },
     {
         "question": "Which dimensionality reduction technique projects data onto directions of maximum variance?",
-        "answer": "PCA",
-        "distractors": ["t-SNE", "UMAP", "LDA"],
+        "answer": "Principal Component Analysis (PCA)",
+        "distractors": ["t-SNE", "UMAP", "Linear Discriminant Analysis"],
     },
     {
-        "question": "Which metric is often preferred over accuracy for imbalanced binary datasets?",
-        "answer": "F1 Score",
-        "distractors": ["Mean Squared Error", "R² Score", "Log Loss"],
+        "question": "What is the purpose of a confusion matrix in classification tasks?",
+        "answer": "To show the counts of true/false positives and negatives",
+        "distractors": [
+            "To measure the distance between class centroids",
+            "To visualise feature correlations",
+            "To plot the learning curve",
+        ],
+    },
+    {
+        "question": "Which loss function is standard for multi-class classification with softmax output?",
+        "answer": "Categorical Cross-Entropy",
+        "distractors": ["Mean Squared Error", "Hinge Loss", "Huber Loss"],
+    },
+    {
+        "question": "What does the ROC curve plot?",
+        "answer": "True Positive Rate vs False Positive Rate",
+        "distractors": [
+            "Precision vs Recall",
+            "Loss vs Epochs",
+            "Accuracy vs Model Complexity",
+        ],
+    },
+    {
+        "question": "Which technique scales each feature to have zero mean and unit variance?",
+        "answer": "Standardisation (Z-score normalisation)",
+        "distractors": ["Min-Max Scaling", "Log Transformation", "One-Hot Encoding"],
     },
 ]
 
@@ -82,113 +126,34 @@ POINTS_PER_ROUND = 1
 DISCONNECT_BONUS = 3
 LABELS = ["A", "B", "C", "D"]
 
-# ── AI question generation ─────────────────────────────────────────────────────
-
-_SYSTEM_PROMPT = (
-    "You are a machine learning quiz question generator. "
-    "You respond ONLY with valid raw JSON arrays — no markdown, no explanation, no backticks."
-)
-
-_USER_PROMPT = """\
-Generate {n} unique multiple-choice questions for a competitive 1v1 machine learning quiz game.
-
-Rules:
-- Test ML/AI/data-science knowledge at undergraduate level.
-- Each question must have exactly 1 correct answer and 3 plausible but wrong distractors.
-- All {n} questions must cover different topics.
-- Keep question text concise (1-2 sentences max).
-- Keep each option text to 10 words or fewer.
-
-Return a JSON array where each element has exactly these keys:
-  "question"    : string
-  "answer"      : string  (correct option)
-  "distractors" : array of exactly 3 strings (wrong options)
-
-Example:
-[{{"question":"What does learning rate control in gradient descent?","answer":"Step size of each weight update","distractors":["Number of training epochs","Size of the training batch","Depth of the neural network"]}}]
-"""
-
-
-def _generate_questions_via_ai(n: int = TOTAL_ROUNDS) -> List[Dict]:
-    if _groq_client is None:
-        log.warning("Groq client not available — using fallback questions.")
-        return []
-    try:
-        response = _groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user",   "content": _USER_PROMPT.format(n=n)},
-            ],
-            temperature=0.8,
-            max_tokens=2048,
-        )
-        raw = response.choices[0].message.content.strip()
-
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-
-        questions = json.loads(raw)
-
-        validated = []
-        for q in questions:
-            if (
-                isinstance(q, dict)
-                and isinstance(q.get("question"), str)
-                and isinstance(q.get("answer"), str)
-                and isinstance(q.get("distractors"), list)
-                and len(q["distractors"]) == 3
-                and all(isinstance(d, str) for d in q["distractors"])
-            ):
-                validated.append({
-                    "question":    q["question"].strip(),
-                    "answer":      q["answer"].strip(),
-                    "distractors": [d.strip() for d in q["distractors"]],
-                })
-
-        if len(validated) >= n:
-            return validated[:n]
-
-        log.warning("Groq returned %d valid questions, expected %d. Using fallback.", len(validated), n)
-        return []
-
-    except Exception as exc:
-        log.exception("AI question generation failed: %s", exc)
-        return []
-
-
-def _pick_questions() -> List[Dict]:
-    questions = _generate_questions_via_ai(TOTAL_ROUNDS)
-    if not questions:
-        pool = _FALLBACK_QUESTIONS.copy()
-        random.shuffle(pool)
-        questions = pool[:TOTAL_ROUNDS]
-    return questions
-
-
-# ── Option builder ─────────────────────────────────────────────────────────────
 
 def _build_options(question: Dict) -> List[Dict]:
+    """Return shuffled list of {label, text, correct} for a question."""
     choices = [{"text": question["answer"], "correct": True}]
     for d in question["distractors"]:
         choices.append({"text": d, "correct": False})
     random.shuffle(choices)
-    return [
-        {"label": LABELS[i], "text": c["text"], "correct": c["correct"]}
-        for i, c in enumerate(choices)
-    ]
+    return [{"label": LABELS[i], "text": c["text"], "correct": c["correct"]}
+            for i, c in enumerate(choices)]
 
 
-# ── Matchmaker ─────────────────────────────────────────────────────────────────
+
+def _completed_count(user_id: int) -> int:
+    """Return number of modules this user has completed."""
+    return ModuleProgress.query.filter_by(
+        user_id=user_id, completed=True
+    ).count()
 
 class Matchmaker:
     def __init__(self) -> None:
         self._lock = Lock()
-        self.waiting_player: Optional[Dict] = None
+        self.waiting_queue: List[Dict] = []   # each entry has sid, user_id, username, progress, joined_at
         self.rooms: Dict[str, Dict] = {}
+
+    def _pick_questions(self) -> List[Dict]:
+        pool = QUESTIONS.copy()
+        random.shuffle(pool)
+        return pool[:TOTAL_ROUNDS]
 
     def _award_points(self, user_id: int, amount: int) -> None:
         user = User.query.get(user_id)
@@ -197,6 +162,7 @@ class Matchmaker:
         try:
             user.points += amount
             db.session.commit()
+            log_activity(user_id, 'playground')
         except Exception:
             db.session.rollback()
 
@@ -204,20 +170,24 @@ class Matchmaker:
         return {p["username"]: room["scores"][p["sid"]] for p in room["players"]}
 
     def _question_payload(self, room: Dict) -> Dict:
+        q    = room["current_question"]
         opts = room["current_options"]
         return {
-            "question": room["current_question"]["question"],
+            "question": q["question"],
             "options":  [{"label": o["label"], "text": o["text"]} for o in opts],
         }
 
     def _is_correct(self, room: Dict, label: str) -> bool:
         label = label.strip().upper()
-        return any(o["label"] == label and o["correct"] for o in room["current_options"])
+        for opt in room["current_options"]:
+            if opt["label"] == label and opt["correct"]:
+                return True
+        return False
 
     def _correct_label(self, room: Dict) -> str:
-        for o in room["current_options"]:
-            if o["correct"]:
-                return o["label"]
+        for opt in room["current_options"]:
+            if opt["correct"]:
+                return opt["label"]
         return ""
 
     def _advance_round(self, room: Dict) -> None:
@@ -250,14 +220,18 @@ class Matchmaker:
         score_a = scores[players[0]["sid"]]
         score_b = scores[players[1]["sid"]]
 
-        if   score_a > score_b: overall_winner = players[0]
-        elif score_b > score_a: overall_winner = players[1]
-        else:                   overall_winner = None
+        if score_a > score_b:
+            overall_winner = players[0]
+        elif score_b > score_a:
+            overall_winner = players[1]
+        else:
+            overall_winner = None
 
         for player in players:
             pts = scores[player["sid"]]
             if pts > 0:
                 self._award_points(player["user_id"], pts)
+            log_activity(player["user_id"], "playground")
 
         emit(
             "match_ended",
@@ -271,67 +245,113 @@ class Matchmaker:
         )
         self.rooms.pop(room["id"], None)
 
-    def join_queue(self, sid: str, user_id: int, username: str) -> None:
+    def _find_match(self, incoming: Dict) -> Optional[Dict]:
+        """
+        Find the best waiting opponent for incoming player.
+        Tolerance widens based on how long the incoming player would wait:
+          0-30s  → ±3 modules
+          30-60s → ±6 modules
+          60s+   → any opponent
+        We use the incoming player's own wait time (0 here since they just
+        joined) but check how long each waiter has been waiting to decide
+        tolerance for THEM — pick the waiter who has waited longest and
+        is within tolerance.
+        """
+        import time
+        now = time.time()
+        best = None
+        best_wait = -1
+
+        for waiter in self.waiting_queue:
+            if waiter["user_id"] == incoming["user_id"]:
+                continue
+            waited = now - waiter["joined_at"]
+            if waited >= 60:
+                tolerance = float("inf")
+            elif waited >= 30:
+                tolerance = 6
+            else:
+                tolerance = 3
+
+            diff = abs(waiter["progress"] - incoming["progress"])
+            if diff <= tolerance and waited > best_wait:
+                best = waiter
+                best_wait = waited
+
+        return best
+
+    def _start_match(self, player_one: Dict, player_two: Dict) -> None:
+        room_id    = f"playground-{uuid4().hex}"
+        questions  = self._pick_questions()
+        first_q    = questions[0]
+        first_opts = _build_options(first_q)
+
+        room_state = {
+            "id":               room_id,
+            "players":          [player_one, player_two],
+            "questions":        questions,
+            "current_question": first_q,
+            "current_options":  first_opts,
+            "round":            1,
+            "round_winner_sid": None,
+            "scores":           {player_one["sid"]: 0, player_two["sid"]: 0},
+            "active":           True,
+        }
+        self.rooms[room_id] = room_state
+
+        join_room(room_id, sid=player_one["sid"])
+        join_room(room_id, sid=player_two["sid"])
+
+        emit(
+            "match_found",
+            {
+                "room_id":         room_id,
+                "round":           1,
+                "total_rounds":    TOTAL_ROUNDS,
+                "players":         [player_one["username"], player_two["username"]],
+                "scores":          {player_one["username"]: 0, player_two["username"]: 0},
+                "question":        first_q["question"],
+                "options":         [{"label": o["label"], "text": o["text"]} for o in first_opts],
+                "p1_progress":     player_one["progress"],
+                "p2_progress":     player_two["progress"],
+            },
+            to=room_id,
+        )
+
+    def join_queue(self, sid: str, user_id: int, username: str, progress: int) -> None:
+        import time
         with self._lock:
-            if self.waiting_player and self.waiting_player["sid"] == sid:
+            # Already waiting?
+            if any(w["sid"] == sid for w in self.waiting_queue):
                 emit("queue_status", {"message": "You are already waiting for an opponent."})
                 return
 
+            # Already in a match?
             if self._find_room_by_sid(sid):
                 emit("queue_status", {"message": "You are already in a match."})
                 return
 
-            if self.waiting_player is None:
-                self.waiting_player = {"sid": sid, "user_id": user_id, "username": username}
-                emit("queue_status", {"message": "Waiting for an opponent..."})
-                return
-
-            if self.waiting_player["user_id"] == user_id:
-                emit("queue_status", {"message": "You cannot play against yourself."})
-                return
-
-            player_one = self.waiting_player
-            player_two = {"sid": sid, "user_id": user_id, "username": username}
-            self.waiting_player = None
-
-            emit("queue_status", {"message": "Opponent found! Generating questions with AI..."}, to=sid)
-            emit("queue_status", {"message": "Opponent found! Generating questions with AI..."}, to=player_one["sid"])
-
-            room_id    = f"playground-{uuid4().hex}"
-            questions  = _pick_questions()
-            first_q    = questions[0]
-            first_opts = _build_options(first_q)
-
-            room_state = {
-                "id":               room_id,
-                "players":          [player_one, player_two],
-                "questions":        questions,
-                "current_question": first_q,
-                "current_options":  first_opts,
-                "round":            1,
-                "round_winner_sid": None,
-                "scores":           {player_one["sid"]: 0, player_two["sid"]: 0},
-                "active":           True,
+            incoming = {
+                "sid":       sid,
+                "user_id":   user_id,
+                "username":  username,
+                "progress":  progress,
+                "joined_at": time.time(),
             }
-            self.rooms[room_id] = room_state
 
-            join_room(room_id, sid=player_one["sid"])
-            join_room(room_id, sid=player_two["sid"])
+            opponent = self._find_match(incoming)
 
-            emit(
-                "match_found",
-                {
-                    "room_id":      room_id,
-                    "round":        1,
-                    "total_rounds": TOTAL_ROUNDS,
-                    "players":      [player_one["username"], player_two["username"]],
-                    "scores":       {player_one["username"]: 0, player_two["username"]: 0},
-                    "question":     first_q["question"],
-                    "options":      [{"label": o["label"], "text": o["text"]} for o in first_opts],
-                    "ai_generated": _groq_client is not None,
-                },
-                to=room_id,
-            )
+            if opponent is None:
+                # No suitable opponent yet — add to queue
+                self.waiting_queue.append(incoming)
+                emit("queue_status", {
+                    "message": f"Waiting for an opponent at your level ({progress} modules completed)..."
+                })
+                return
+
+            # Remove opponent from queue
+            self.waiting_queue = [w for w in self.waiting_queue if w["sid"] != opponent["sid"]]
+            self._start_match(opponent, incoming)
 
     def submit_answer(self, sid: str, label: str) -> None:
         with self._lock:
@@ -339,12 +359,15 @@ class Matchmaker:
             if not room:
                 emit("answer_result", {"correct": False, "message": "No active match found."})
                 return
+
             if not room["active"]:
                 emit("answer_result", {"correct": False, "message": "Match already finished."})
                 return
+
             if not label:
                 emit("answer_result", {"correct": False, "message": "No option selected."})
                 return
+
             if room["round_winner_sid"] is not None:
                 emit("answer_result", {"correct": False, "message": "Round already won."})
                 return
@@ -353,6 +376,7 @@ class Matchmaker:
                 room["round_winner_sid"] = sid
                 room["scores"][sid] += POINTS_PER_ROUND
                 winner = next(p for p in room["players"] if p["sid"] == sid)
+
                 emit(
                     "round_ended",
                     {
@@ -374,8 +398,10 @@ class Matchmaker:
 
     def disconnect(self, sid: str) -> None:
         with self._lock:
-            if self.waiting_player and self.waiting_player["sid"] == sid:
-                self.waiting_player = None
+            # Remove from queue if waiting
+            before = len(self.waiting_queue)
+            self.waiting_queue = [w for w in self.waiting_queue if w["sid"] != sid]
+            if len(self.waiting_queue) < before:
                 return
 
             room = self._find_room_by_sid(sid)
@@ -387,9 +413,11 @@ class Matchmaker:
             remaining = next(p for p in room["players"] if p["sid"] != sid)
 
             self._award_points(remaining["user_id"], room["scores"][remaining["sid"]] + DISCONNECT_BONUS)
+            log_activity(remaining["user_id"], "playground")
             earned = room["scores"][leaver["sid"]]
             if earned > 0:
                 self._award_points(leaver["user_id"], earned)
+                log_activity(leaver["user_id"], "playground")
 
             leave_room(room["id"], sid=leaver["sid"])
             emit(
@@ -416,14 +444,13 @@ class Matchmaker:
 matchmaker = Matchmaker()
 
 
-# ── Socket event handlers ──────────────────────────────────────────────────────
-
 @socketio.on("join_playground")
 def handle_join_playground():
     if not current_user.is_authenticated:
         emit("queue_status", {"message": "Please log in to use the playground."})
         return
-    matchmaker.join_queue(request.sid, current_user.id, current_user.username)
+    progress = _completed_count(current_user.id)
+    matchmaker.join_queue(request.sid, current_user.id, current_user.username, progress)
 
 
 @socketio.on("submit_answer")
