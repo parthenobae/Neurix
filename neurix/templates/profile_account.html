@@ -192,22 +192,6 @@
   transform: translateX(-50%);
 }
 
-/* Legend */
-.hm-legend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 8px;
-  justify-content: flex-end;
-  font-size: .64rem;
-  color: #9a8f85;
-}
-.hm-leg {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
-}
-
 /* Tooltip */
 .hm-tip {
   position: fixed;
@@ -303,7 +287,7 @@
 
     <div class="pts-box">
       <div class="pts-val">{{ puser.points }}</div>
-      <div class="pts-lbl">⚡ Total Points</div>
+      <div class="pts-lbl">Total Points</div>
     </div>
 
     <hr class="sdiv">
@@ -329,8 +313,7 @@
     <!-- ── Activity card ──────────────────────────────── -->
     <div class="ac">
       <div class="ac-hd">
-        <span class="ac-hd-title">🔥 Contribution Activity</span>
-        <span class="ac-hd-sub">— past 12 rolling months</span>
+        <span class="ac-hd-title">Contribution Activity</span>
       </div>
       <div class="ac-bd">
 
@@ -373,46 +356,6 @@
         <!-- Month labels row (separate container for positioning) -->
         <div class="month-labels-row" id="month-labels-row"></div>
 
-        <!-- Legend -->
-        <div class="hm-legend">
-          <span>Less</span>
-          <div class="hm-leg" style="background:#ebedf0;"></div>
-          <div class="hm-leg" style="background:#9be9a8;"></div>
-          <div class="hm-leg" style="background:#40c463;"></div>
-          <div class="hm-leg" style="background:#30a14e;"></div>
-          <div class="hm-leg" style="background:#216e39;"></div>
-          <span>More</span>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Activity breakdown ────────────────────────── -->
-    <div class="ac">
-      <div class="ac-hd">
-        <span class="ac-hd-title">📊 Activity Breakdown</span>
-        <span class="ac-hd-sub">— past 12 months</span>
-      </div>
-      <div class="ac-bd">
-        <div class="act-grid">
-          {% set act_types = [
-            ('login',      '#6b7280', '🔑', 'Logins'),
-            ('module',     '#2563eb', '🧠', 'Modules'),
-            ('quiz',       '#7c3aed', '📝', 'Quizzes'),
-            ('playground', '#b84c27', '⚡', 'Playground'),
-            ('post',       '#0891b2', '✍️',  'Posts'),
-          ] %}
-          {% for key, color, icon, label in act_types %}
-          <div class="act-pill">
-            <div class="act-dot" style="background:{{ color }};"></div>
-            <span class="act-name">{{ icon }} {{ label }}</span>
-            <span class="act-n">{{ activity_summary.get(key, 0) }}</span>
-          </div>
-          {% endfor %}
-        </div>
-
-        <div style="font-size:.72rem;color:#9a8f85;margin-bottom:.4rem;">Monthly activity — last 6 months</div>
-        <div class="bar-chart-wrap" id="monthly-bars"></div>
       </div>
     </div>
 
@@ -502,7 +445,6 @@ const CONFIG = {
   monthNames: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   
-  weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 };
 
 // ===================================================
@@ -585,28 +527,6 @@ function buildHeatmap() {
   wrapper.style.minWidth = 'max-content';
   wrapper.style.gap = '5px';
 
-  // Day labels column
-  const dayLabelsCol = document.createElement('div');
-  dayLabelsCol.style.display = 'flex';
-  dayLabelsCol.style.flexDirection = 'column';
-  dayLabelsCol.style.width = CONFIG.dayLabelWidth + 'px';
-  dayLabelsCol.style.flexShrink = '0';
-  dayLabelsCol.style.gap = CONFIG.cellGap + 'px';
-  
-  CONFIG.weekdays.forEach(day => {
-    const label = document.createElement('div');
-    label.style.height = CONFIG.cellSize + 'px';
-    label.style.lineHeight = CONFIG.cellSize + 'px';
-    label.style.fontSize = '0.6rem';
-    label.style.color = '#9a8f85';
-    label.style.textAlign = 'right';
-    label.style.whiteSpace = 'nowrap';
-    label.textContent = day;
-    dayLabelsCol.appendChild(label);
-  });
-  
-  wrapper.appendChild(dayLabelsCol);
-
   // Months container
   const monthsContainer = document.createElement('div');
   monthsContainer.style.display = 'flex';
@@ -663,26 +583,43 @@ function buildHeatmap() {
             const displayDate = currentDate.toLocaleDateString('en-US', {
               month: 'short', day: 'numeric', year: 'numeric'
             });
-            const tipText = `${activity.count} submission${activity.count > 1 ? 's' : ''} · ${displayDate}`;
+            const tipText = `${activity.count} activit${activity.count > 1 ? 'ies' : 'y'} · ${displayDate}`;
             
             cell.addEventListener('mouseenter', () => {
               tip.textContent = tipText;
               tip.style.display = 'block';
             });
-            cell.addEventListener('mousemove', (e) => {
-              tip.style.left = (e.clientX + 14) + 'px';
-              tip.style.top = (e.clientY - 34) + 'px';
-            });
+cell.addEventListener('mousemove', (e) => {
+  const padding = 12;
+
+  const tipWidth = tip.offsetWidth;
+  const tipHeight = tip.offsetHeight;
+
+  let left = e.clientX + 14;
+  let top = e.clientY - 34;
+
+  // Prevent overflow right
+  if (left + tipWidth + padding > window.innerWidth) {
+    left = window.innerWidth - tipWidth - padding;
+  }
+
+  // Prevent overflow left
+  if (left < padding) {
+    left = padding;
+  }
+
+  // Prevent overflow top
+  if (top < padding) {
+    top = e.clientY + 20;
+  }
+
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+});
             cell.addEventListener('mouseleave', () => {
               tip.style.display = 'none';
             });
             
-            // Highlight today
-            const todayStr = new Date().toISOString().split('T')[0];
-            if (dateStr === todayStr) {
-              cell.style.outline = '1.5px solid #b84c27';
-              cell.style.outlineOffset = '1px';
-            }
           } else {
             cell.style.backgroundColor = CONFIG.colors[0];
           }
@@ -709,7 +646,7 @@ function buildHeatmap() {
   container.appendChild(wrapper);
 
   // Position month labels
-  monthLabelsRow.style.paddingLeft = CONFIG.dayLabelWidth + 'px';
+  monthLabelsRow.style.paddingLeft = '0px';
   monthLabelsRow.style.position = 'relative';
   monthLabelsRow.style.height = '20px';
   monthLabelsRow.style.marginTop = '5px';
