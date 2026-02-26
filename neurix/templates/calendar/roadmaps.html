@@ -1,0 +1,251 @@
+{% extends "layout.html" %}
+{% block content_col_class %}col-md-10{% endblock %}
+{% block sidebar %}{% endblock %}
+
+{% block content %}
+<style>
+    .rm-page-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+    .rm-page-header h2 { margin: 0; }
+
+    /* Generate form */
+    .gen-card {
+        background: linear-gradient(135deg, #1a2535, #2c3e55);
+        border-radius: 14px; padding: 1.5rem 1.8rem;
+        color: #fff; margin-bottom: 2rem;
+    }
+    .gen-card h4 { margin-bottom: .3rem; font-size: 1.05rem; }
+    .gen-card p  { font-size: .85rem; opacity: .7; margin-bottom: 1rem; }
+    .gen-row { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .gen-row input, .gen-row select {
+        flex: 1; min-width: 160px;
+        padding: .55rem .8rem; border-radius: 9px; border: none;
+        font-size: .88rem; outline: none;
+    }
+    .btn-gen {
+        padding: .55rem 1.4rem; border-radius: 9px;
+        background: #4f8ef7; color: #fff; border: none;
+        font-size: .88rem; font-weight: 600; cursor: pointer;
+        transition: background .15s;
+        white-space: nowrap;
+    }
+    .btn-gen:hover { background: #3a70d4; }
+    .btn-gen:disabled { background: #668; cursor: not-allowed; }
+
+    /* Roadmap cards */
+    .rm-section-label {
+        font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; color: #9a8f85; margin-bottom: .75rem;
+    }
+    .rm-cards {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr));
+        gap: 1rem; margin-bottom: 2rem;
+    }
+    .rm-card {
+        border: 1px solid #ede9e3; border-radius: 12px;
+        background: #faf8f4; padding: 1.1rem 1.2rem;
+        display: flex; flex-direction: column; gap: .5rem;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .rm-card:hover { border-color: #bbb5ac; box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+    .rm-card-title { font-size: .95rem; font-weight: 600; color: #1a2535; }
+    .rm-card-desc  { font-size: .8rem; color: #6b7280; flex: 1; }
+    .rm-card-meta  { font-size: .72rem; color: #9a8f85; }
+    .rm-card-foot  { display: flex; gap: .5rem; margin-top: .4rem; }
+    .btn-enroll {
+        flex: 1; padding: .4rem .9rem; border-radius: 8px;
+        background: #1a2535; color: #fff; border: none;
+        font-size: .8rem; font-weight: 600; cursor: pointer;
+        transition: background .15s;
+    }
+    .btn-enroll:hover   { background: #2c3e55; }
+    .btn-enrolled {
+        flex: 1; padding: .4rem .9rem; border-radius: 8px;
+        background: #e0edff; color: #3a70d4; border: 1px solid #bcd4f0;
+        font-size: .8rem; font-weight: 600; cursor: default;
+    }
+    .btn-unenroll {
+        padding: .4rem .75rem; border-radius: 8px;
+        background: none; color: #e53e3e;
+        border: 1px solid #fca5a5;
+        font-size: .8rem; cursor: pointer;
+        transition: background .15s;
+    }
+    .btn-unenroll:hover { background: #fff1f1; }
+
+    #genSpinner { display:none; }
+    .toast-bar {
+        position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+        background: #1a2535; color: #fff; padding: .7rem 1.5rem;
+        border-radius: 99px; font-size: .85rem;
+        z-index: 9999; opacity: 0; transition: opacity .3s;
+        pointer-events: none;
+    }
+    .toast-bar.show { opacity: 1; }
+</style>
+
+<div class="rm-page-header">
+    <h2>Roadmaps</h2>
+    <a href="{{ url_for('calendar.index') }}" style="font-size:.85rem;color:#3a70d4;">← Back to Calendar</a>
+</div>
+
+<!-- AI generate card -->
+<div class="gen-card">
+    <h4>✨ Generate a custom roadmap with AI</h4>
+    <p>Tell the AI what you want to learn and how many days you have.</p>
+    <div class="gen-row">
+        <input type="text" id="genTopic" placeholder="e.g. Machine Learning, Flask REST APIs…">
+        <select id="genDays">
+            <option value="7">7 days</option>
+            <option value="14">14 days</option>
+            <option value="30" selected>30 days</option>
+            <option value="60">60 days</option>
+            <option value="90">90 days</option>
+        </select>
+        <button class="btn-gen" id="genBtn" onclick="generateRoadmap()">
+            <span id="genLabel">Generate</span>
+            <span id="genSpinner">⏳ Generating…</span>
+        </button>
+    </div>
+</div>
+
+<!-- Personal / AI roadmaps -->
+{% if personal %}
+<div class="rm-section-label">Your AI Roadmaps</div>
+<div class="rm-cards" id="personalCards">
+    {% for rm in personal %}
+    <div class="rm-card" id="rmcard-{{ rm.id }}">
+        <div class="rm-card-title">{{ rm.title }}</div>
+        <div class="rm-card-desc">{{ rm.description or '' }}</div>
+        <div class="rm-card-meta">{{ rm.tasks | length }} task{{ 's' if rm.tasks|length != 1 }} · {{ rm.topic }}</div>
+        <div class="rm-card-foot">
+            {% if rm.id in enrolled_ids %}
+            <span class="btn-enrolled">✓ Enrolled</span>
+            <button class="btn-unenroll" onclick="unenroll({{ rm.id }}, this)">Drop</button>
+            {% else %}
+            <button class="btn-enroll" onclick="enroll({{ rm.id }}, this)">Enrol</button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rm-section-label">Your AI Roadmaps</div>
+<p id="personalCards" style="color:#9a8f85;font-size:.85rem;margin-bottom:2rem;">
+    No AI roadmaps yet — generate one above!
+</p>
+{% endif %}
+
+<!-- Preset roadmaps -->
+{% if preset %}
+<div class="rm-section-label">Preset Roadmaps</div>
+<div class="rm-cards">
+    {% for rm in preset %}
+    <div class="rm-card" id="rmcard-{{ rm.id }}">
+        <div class="rm-card-title">{{ rm.title }}</div>
+        <div class="rm-card-desc">{{ rm.description or '' }}</div>
+        <div class="rm-card-meta">{{ rm.tasks | length }} task{{ 's' if rm.tasks|length != 1 }}</div>
+        <div class="rm-card-foot">
+            {% if rm.id in enrolled_ids %}
+            <span class="btn-enrolled">✓ Enrolled</span>
+            <button class="btn-unenroll" onclick="unenroll({{ rm.id }}, this)">Drop</button>
+            {% else %}
+            <button class="btn-enroll" onclick="enroll({{ rm.id }}, this)">Enrol</button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="toast-bar" id="toast"></div>
+
+<script>
+    const GEN_URL    = "{{ url_for('calendar.generate_roadmap') }}";
+    const ENROLL_URL = id => `/calendar/roadmaps/${id}/enroll`;
+    const UNENR_URL  = id => `/calendar/roadmaps/${id}/unenroll`;
+
+    function showToast(msg, ms=2800) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), ms);
+    }
+
+    /* ── generate ─────────────────────────────────────────────────────── */
+    async function generateRoadmap() {
+        const topic = document.getElementById('genTopic').value.trim();
+        const days  = document.getElementById('genDays').value;
+        if (!topic) { showToast('Please enter a topic first.'); return; }
+
+        const btn = document.getElementById('genBtn');
+        btn.disabled = true;
+        document.getElementById('genLabel').style.display   = 'none';
+        document.getElementById('genSpinner').style.display = 'inline';
+
+        try {
+            const res  = await fetch(GEN_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({topic, days: parseInt(days)}),
+            });
+            const data = await res.json();
+            if (!res.ok) { showToast('Error: ' + (data.error || 'generation failed')); return; }
+
+            // inject new card without page reload
+            const container = document.getElementById('personalCards');
+            if (container.tagName === 'P') {
+                container.outerHTML = '<div class="rm-cards" id="personalCards"></div>';
+            }
+            const card = document.createElement('div');
+            card.className = 'rm-card';
+            card.id = `rmcard-${data.id}`;
+            card.innerHTML = `
+      <div class="rm-card-title">${escHtml(data.title)}</div>
+      <div class="rm-card-desc">${escHtml(data.description)}</div>
+      <div class="rm-card-meta">${data.task_count} tasks · ${escHtml(topic)}</div>
+      <div class="rm-card-foot">
+        <button class="btn-enroll" onclick="enroll(${data.id}, this)">Enrol</button>
+      </div>`;
+            document.getElementById('personalCards').prepend(card);
+            document.getElementById('genTopic').value = '';
+            showToast(`"${data.title}" roadmap created!`);
+        } finally {
+            btn.disabled = false;
+            document.getElementById('genLabel').style.display   = 'inline';
+            document.getElementById('genSpinner').style.display = 'none';
+        }
+    }
+
+    /* ── enrol ─────────────────────────────────────────────────────────── */
+    async function enroll(id, btn) {
+        btn.disabled = true;
+        const res  = await fetch(ENROLL_URL(id), {method:'POST', headers:{'Content-Type':'application/json'}});
+        const data = await res.json();
+        if (!res.ok) { showToast(data.error || 'Error enrolling'); btn.disabled=false; return; }
+        const foot = btn.closest('.rm-card-foot');
+        foot.innerHTML = `
+    <span class="btn-enrolled">✓ Enrolled</span>
+    <button class="btn-unenroll" onclick="unenroll(${id}, this)">Drop</button>`;
+        showToast(`Enrolled! ${data.task_count} tasks added to your calendar.`);
+    }
+
+    /* ── unenrol ───────────────────────────────────────────────────────── */
+    async function unenroll(id, btn) {
+        if (!confirm('Drop this roadmap? Future pending tasks will be removed.')) return;
+        btn.disabled = true;
+        const res  = await fetch(UNENR_URL(id), {method:'POST', headers:{'Content-Type':'application/json'}});
+        const data = await res.json();
+        if (!res.ok) { showToast('Error dropping roadmap'); btn.disabled=false; return; }
+        const foot = btn.closest('.rm-card-foot');
+        foot.innerHTML = `<button class="btn-enroll" onclick="enroll(${id}, this)">Enrol</button>`;
+        showToast('Dropped from roadmap.');
+    }
+
+    function escHtml(s) {
+        return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+</script>
+{% endblock %}
