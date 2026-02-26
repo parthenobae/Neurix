@@ -78,6 +78,9 @@ def account():
     modules_done     = sum(1 for p in current_user.module_progress if p.completed)
     levels_unlocked  = len(current_user.level_unlocks) + 1
 
+    page  = request.args.get('page', 1, type=int)
+    posts = Post.query.filter_by(user_id=current_user.id)        .order_by(Post.date_posted.desc())        .paginate(page=page, per_page=5)
+
     response = make_response(render_template(
         'profile_account.html',
         title='Account',
@@ -90,6 +93,9 @@ def account():
         activity_summary=activity_summary,
         modules_done=modules_done,
         levels_unlocked=levels_unlocked,
+        posts=posts,
+        profile_user=current_user,
+        view_profile=False,
     ))
     # Prevent browser from caching the account page so heatmap always refreshes
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -187,13 +193,16 @@ def view_profile(username):
         user_id=profile_user.id
     ).count() + 1
 
+    page  = request.args.get('page', 1, type=int)
+    posts = Post.query.filter_by(user_id=profile_user.id)        .order_by(Post.date_posted.desc())        .paginate(page=page, per_page=5)
+
     return render_template(
         'profile_account.html',
         title=f"{profile_user.username}'s Profile",
         image_file=image_file,
-        form=None,                          # no edit form
-        view_profile=True,                  # read-only flag
-        profile_user=profile_user,          # the user being viewed
+        form=None,
+        view_profile=True,
+        profile_user=profile_user,
         current_streak=current_streak,
         longest_streak=longest_streak,
         heatmap_json=json.dumps(heatmap_data),
@@ -201,4 +210,5 @@ def view_profile(username):
         activity_summary=activity_summary,
         modules_done=modules_done,
         levels_unlocked=levels_unlocked,
+        posts=posts,
     )
