@@ -282,6 +282,42 @@
   .result-scores { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; }
   .result-score-item { background: #fff; border: 1px solid #e2ddd6; border-radius: 6px; padding: 0.5rem 0.9rem; font-size: 0.875rem; font-weight: 600; color: #1a2535; }
   .result-score-item span { font-size: 1.1rem; color: #b84c27; margin-left: 0.3rem; }
+
+  /* Locked state */
+  .pg-locked {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2.5rem 1.5rem; text-align: center; gap: .75rem;
+  }
+  .pg-locked-icon {
+    font-size: 2.2rem; line-height: 1;
+  }
+  .pg-locked-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.1rem; color: #1a2535; margin: 0;
+  }
+  .pg-locked-sub {
+    font-size: .83rem; color: #6b7280; margin: 0; max-width: 320px;
+  }
+  .pg-locked-cta {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: #1a2535; color: #fff; border: none;
+    border-radius: 6px; padding: .45rem 1.1rem;
+    font-size: .84rem; font-weight: 600; cursor: pointer;
+    text-decoration: none; margin-top: .25rem;
+    transition: background .15s;
+  }
+  .pg-locked-cta:hover { background: #2e3f58; color: #fff; text-decoration: none; }
+
+  /* Progress badge shown in queue */
+  .pg-progress-badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: #eaf6ee; border: 1px solid #a7e3be;
+    border-radius: 5px; padding: .25rem .7rem;
+    font-size: .75rem; font-weight: 600; color: #1a5c37;
+    margin-bottom: .6rem;
+  }
+
 </style>
 
 <h1 style="font-family:'DM Serif Display',serif; font-size:1.9rem; margin-bottom:1.25rem;">Playground</h1>
@@ -294,10 +330,6 @@
       <p class="pg-title">ML Quiz — 1v1 Battle</p>
       <p class="pg-subtitle">10 rounds · First correct answer wins the round · MCQ format</p>
     </div>
-    <span class="ai-header-badge">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 8v4l3 3"/></svg>
-      AI Generated
-    </span>
   </div>
 
   <!-- Round / score bar -->
@@ -316,13 +348,33 @@
 
     <p id="pg-status" class="pg-status">Idle.</p>
 
-    <button id="btn-join" class="btn-join" {% if not current_user.is_authenticated %}disabled{% endif %}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Join Matchmaking
-    </button>
-
     {% if not current_user.is_authenticated %}
-      <p class="pg-feedback info mt-2">Please log in to participate and earn points.</p>
+      <!-- Not logged in -->
+      <div class="pg-locked">
+        <div class="pg-locked-icon">🔒</div>
+        <p class="pg-locked-title">Login required</p>
+        <p class="pg-locked-sub">You need to be logged in to enter the Playground.</p>
+        <a href="{{ url_for('users.login') }}" class="pg-locked-cta">Login to play</a>
+      </div>
+
+    {% elif completed_count == 0 %}
+      <!-- Logged in but no modules done -->
+      <div class="pg-locked">
+        <div class="pg-locked-icon">📚</div>
+        <p class="pg-locked-title">Complete at least one module first</p>
+        <p class="pg-locked-sub">
+          The Playground matches you against players at your level.
+          Finish at least one module in the Learn section before jumping in.
+        </p>
+        <a href="{{ url_for('learn.dashboard') }}" class="pg-locked-cta">Go to Learn →</a>
+      </div>
+
+    {% else %}
+      <!-- Ready to play -->
+      <button id="btn-join" class="btn-join">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Join Matchmaking
+      </button>
     {% endif %}
 
     <!-- AI generating loader -->
@@ -376,6 +428,7 @@
   if (!btnJoin) return;
 
   const socket = io();
+  const MY_USERNAME = '{{ current_user.username if current_user.is_authenticated else "" }}';
   let inMatch      = false;
   let players      = [];
   let myUsername   = '';
@@ -478,6 +531,7 @@
   socket.on('match_found', (payload) => {
     inMatch = true; locked = false;
     players = payload.players;
+    myUsername = MY_USERNAME;
     totalRounds = payload.total_rounds;
     aiGenerated = payload.ai_generated || false;
 
@@ -494,7 +548,9 @@
     buildOptions(payload.options);
     questionArea.classList.add('visible');
 
-    setStatus(`${players[0]} vs ${players[1]} — Round 1`, 'active');
+    const oppProgress = MY_USERNAME === payload.players[0]
+      ? payload.p2_progress : payload.p1_progress;
+    setStatus(`${players[0]} vs ${players[1]} — Round 1 · Opponent: ${oppProgress} modules`, 'active');
     setFeedback('');
   });
 

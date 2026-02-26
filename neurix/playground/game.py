@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import time
 from threading import Lock
 from typing import Dict, List, Optional
 from uuid import uuid4
@@ -10,7 +11,7 @@ from flask_login import current_user
 from flask_socketio import emit, join_room, leave_room
 
 from neurix import db, socketio
-from neurix.models import User
+from neurix.models import User, ModuleProgress
 from neurix.users.streak_utils import log_activity
 
 
@@ -136,10 +137,17 @@ def _build_options(question: Dict) -> List[Dict]:
             for i, c in enumerate(choices)]
 
 
+
+def _completed_count(user_id: int) -> int:
+    """Return number of modules this user has completed."""
+    return ModuleProgress.query.filter_by(
+        user_id=user_id, completed=True
+    ).count()
+
 class Matchmaker:
     def __init__(self) -> None:
         self._lock = Lock()
-        self.waiting_player: Optional[Dict] = None
+        self.waiting_queue: List[Dict] = []   # each entry has sid, user_id, username, progress, joined_at
         self.rooms: Dict[str, Dict] = {}
 
     def _pick_questions(self) -> List[Dict]:
@@ -237,63 +245,113 @@ class Matchmaker:
         )
         self.rooms.pop(room["id"], None)
 
-    def join_queue(self, sid: str, user_id: int, username: str) -> None:
+    def _find_match(self, incoming: Dict) -> Optional[Dict]:
+        """
+        Find the best waiting opponent for incoming player.
+        Tolerance widens based on how long the incoming player would wait:
+          0-30s  → ±3 modules
+          30-60s → ±6 modules
+          60s+   → any opponent
+        We use the incoming player's own wait time (0 here since they just
+        joined) but check how long each waiter has been waiting to decide
+        tolerance for THEM — pick the waiter who has waited longest and
+        is within tolerance.
+        """
+        import time
+        now = time.time()
+        best = None
+        best_wait = -1
+
+        for waiter in self.waiting_queue:
+            if waiter["user_id"] == incoming["user_id"]:
+                continue
+            waited = now - waiter["joined_at"]
+            if waited >= 60:
+                tolerance = float("inf")
+            elif waited >= 30:
+                tolerance = 6
+            else:
+                tolerance = 3
+
+            diff = abs(waiter["progress"] - incoming["progress"])
+            if diff <= tolerance and waited > best_wait:
+                best = waiter
+                best_wait = waited
+
+        return best
+
+    def _start_match(self, player_one: Dict, player_two: Dict) -> None:
+        room_id    = f"playground-{uuid4().hex}"
+        questions  = self._pick_questions()
+        first_q    = questions[0]
+        first_opts = _build_options(first_q)
+
+        room_state = {
+            "id":               room_id,
+            "players":          [player_one, player_two],
+            "questions":        questions,
+            "current_question": first_q,
+            "current_options":  first_opts,
+            "round":            1,
+            "round_winner_sid": None,
+            "scores":           {player_one["sid"]: 0, player_two["sid"]: 0},
+            "active":           True,
+        }
+        self.rooms[room_id] = room_state
+
+        join_room(room_id, sid=player_one["sid"])
+        join_room(room_id, sid=player_two["sid"])
+
+        emit(
+            "match_found",
+            {
+                "room_id":         room_id,
+                "round":           1,
+                "total_rounds":    TOTAL_ROUNDS,
+                "players":         [player_one["username"], player_two["username"]],
+                "scores":          {player_one["username"]: 0, player_two["username"]: 0},
+                "question":        first_q["question"],
+                "options":         [{"label": o["label"], "text": o["text"]} for o in first_opts],
+                "p1_progress":     player_one["progress"],
+                "p2_progress":     player_two["progress"],
+            },
+            to=room_id,
+        )
+
+    def join_queue(self, sid: str, user_id: int, username: str, progress: int) -> None:
+        import time
         with self._lock:
-            if self.waiting_player and self.waiting_player["sid"] == sid:
+            # Already waiting?
+            if any(w["sid"] == sid for w in self.waiting_queue):
                 emit("queue_status", {"message": "You are already waiting for an opponent."})
                 return
 
+            # Already in a match?
             if self._find_room_by_sid(sid):
                 emit("queue_status", {"message": "You are already in a match."})
                 return
 
-            if self.waiting_player is None:
-                self.waiting_player = {"sid": sid, "user_id": user_id, "username": username}
-                emit("queue_status", {"message": "Waiting for an opponent..."})
-                return
-
-            if self.waiting_player["user_id"] == user_id:
-                emit("queue_status", {"message": "You cannot play against yourself."})
-                return
-
-            player_one = self.waiting_player
-            player_two = {"sid": sid, "user_id": user_id, "username": username}
-            self.waiting_player = None
-
-            room_id    = f"playground-{uuid4().hex}"
-            questions  = self._pick_questions()
-            first_q    = questions[0]
-            first_opts = _build_options(first_q)
-
-            room_state = {
-                "id":               room_id,
-                "players":          [player_one, player_two],
-                "questions":        questions,
-                "current_question": first_q,
-                "current_options":  first_opts,
-                "round":            1,
-                "round_winner_sid": None,
-                "scores":           {player_one["sid"]: 0, player_two["sid"]: 0},
-                "active":           True,
+            incoming = {
+                "sid":       sid,
+                "user_id":   user_id,
+                "username":  username,
+                "progress":  progress,
+                "joined_at": time.time(),
             }
-            self.rooms[room_id] = room_state
 
-            join_room(room_id, sid=player_one["sid"])
-            join_room(room_id, sid=player_two["sid"])
+            opponent = self._find_match(incoming)
 
-            emit(
-                "match_found",
-                {
-                    "room_id":      room_id,
-                    "round":        1,
-                    "total_rounds": TOTAL_ROUNDS,
-                    "players":      [player_one["username"], player_two["username"]],
-                    "scores":       {player_one["username"]: 0, player_two["username"]: 0},
-                    "question":     first_q["question"],
-                    "options":      [{"label": o["label"], "text": o["text"]} for o in first_opts],
-                },
-                to=room_id,
-            )
+            if opponent is None:
+                # No suitable opponent yet — add to queue
+                self.waiting_queue.append(incoming)
+                emit("queue_status", {
+                    "message": f"Waiting for an opponent at your level ({progress} modules completed)..."
+                })
+                return
+
+            # Remove opponent from queue
+            self.waiting_queue = [w for w in self.waiting_queue if w["sid"] != opponent["sid"]]
+            self._start_match(opponent, incoming)
 
     def submit_answer(self, sid: str, label: str) -> None:
         with self._lock:
@@ -340,8 +398,10 @@ class Matchmaker:
 
     def disconnect(self, sid: str) -> None:
         with self._lock:
-            if self.waiting_player and self.waiting_player["sid"] == sid:
-                self.waiting_player = None
+            # Remove from queue if waiting
+            before = len(self.waiting_queue)
+            self.waiting_queue = [w for w in self.waiting_queue if w["sid"] != sid]
+            if len(self.waiting_queue) < before:
                 return
 
             room = self._find_room_by_sid(sid)
@@ -389,7 +449,8 @@ def handle_join_playground():
     if not current_user.is_authenticated:
         emit("queue_status", {"message": "Please log in to use the playground."})
         return
-    matchmaker.join_queue(request.sid, current_user.id, current_user.username)
+    progress = _completed_count(current_user.id)
+    matchmaker.join_queue(request.sid, current_user.id, current_user.username, progress)
 
 
 @socketio.on("submit_answer")
