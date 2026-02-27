@@ -22,7 +22,6 @@ class User(db.Model, UserMixin):
     level_unlocks = db.relationship('LevelUnlock', backref='user', lazy=True)
     activity_logs = db.relationship('ActivityLog', backref='user', lazy=True)
     chat_messages = db.relationship('ChatMessage', backref='user', lazy=True)
-    # Calendar
     calendar_tasks = db.relationship('CalendarTask', backref='user', lazy=True)
     user_roadmaps  = db.relationship('UserRoadmap',  backref='user', lazy=True)
 
@@ -98,11 +97,6 @@ class LevelUnlock(db.Model):
 
 
 class ActivityLog(db.Model):
-    """
-    One row per user × date × activity_type.
-    activity_type: 'module' | 'quiz' | 'playground' | 'post' | 'login'
-    count increments each time the action is performed that day.
-    """
     __tablename__ = 'activity_log'
 
     id            = db.Column(db.Integer, primary_key=True)
@@ -120,10 +114,6 @@ class ActivityLog(db.Model):
 
 
 class ChatMessage(db.Model):
-    """
-    Persistent chat history per user per module.
-    role: 'user' | 'assistant'
-    """
     __tablename__ = 'chat_message'
 
     id        = db.Column(db.Integer, primary_key=True)
@@ -153,11 +143,6 @@ class ChatMessage(db.Model):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class CalendarTask(db.Model):
-    """
-    A single to-do item placed on a specific date.
-    source: 'manual' | 'roadmap'
-    status: 'pending' | 'done' | 'skipped'
-    """
     __tablename__ = 'calendar_task'
 
     id              = db.Column(db.Integer, primary_key=True)
@@ -189,11 +174,6 @@ class CalendarTask(db.Model):
 
 
 class Roadmap(db.Model):
-    """
-    A learning roadmap – either pre-built or AI-generated for a specific user.
-    source: 'ai' | 'preset'
-    owner_id is null for global preset roadmaps.
-    """
     __tablename__ = 'roadmap'
 
     id          = db.Column(db.Integer, primary_key=True)
@@ -220,10 +200,6 @@ class Roadmap(db.Model):
 
 
 class RoadmapTask(db.Model):
-    """
-    One task within a roadmap, at day_offset days from enrolment date.
-    day_offset=0 → enrolment day itself.
-    """
     __tablename__ = 'roadmap_task'
 
     id          = db.Column(db.Integer, primary_key=True)
@@ -239,11 +215,6 @@ class RoadmapTask(db.Model):
 
 
 class UserRoadmap(db.Model):
-    """
-    Tracks a user's enrolment in a roadmap.
-    start_date: the calendar date corresponding to day_offset=0.
-    tasks_seeded: True once CalendarTask rows have been written for all RoadmapTasks.
-    """
     __tablename__ = 'user_roadmap'
 
     id           = db.Column(db.Integer, primary_key=True)
@@ -263,3 +234,28 @@ class UserRoadmap(db.Model):
 
     def __repr__(self):
         return f"UserRoadmap(user={self.user_id}, roadmap={self.roadmap_id}, start={self.start_date})"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# QUIZ MODELS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class QuizAttempt(db.Model):
+    __tablename__ = 'quiz_attempt'
+
+    id                   = db.Column(db.Integer, primary_key=True)
+    user_id              = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    tags                 = db.Column(db.String(500), nullable=False)
+    score                = db.Column(db.Integer, nullable=False, default=0)
+    total                = db.Column(db.Integer, nullable=False, default=15)
+    time_taken           = db.Column(db.Integer, nullable=True)
+    difficulty_breakdown = db.Column(db.Text, nullable=True)
+    tag_breakdown        = db.Column(db.Text, nullable=True)
+    attempted_at         = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def __repr__(self):
+        return f"QuizAttempt(user={self.user_id}, score={self.score}/{self.total}, tags={self.tags})"
