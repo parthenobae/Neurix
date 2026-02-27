@@ -1,0 +1,1029 @@
+{% extends "layout.html" %}
+{% block content_col_class %}col-md-10{% endblock %}
+{% block sidebar %}{% endblock %}
+
+{% block right_navbar %}
+<span class="nav-item nav-link" style="color:#b84c27; font-weight:600;">
+  ⚡ {{ current_user.points }} pts
+</span>
+{% endblock %}
+
+{% block content %}
+<style>
+    /* ══════════════════════════════════════════════════════
+       QUIZ — base layout
+       ══════════════════════════════════════════════════════ */
+    .qz-wrap { max-width: 860px; margin: 0 auto; }
+
+    .qz-hero { margin-bottom: 1.8rem; }
+    .qz-hero h1 {
+        font-family: 'DM Serif Display', serif;
+        font-size: 2rem; color: var(--text); margin-bottom: .3rem;
+    }
+    .qz-hero p { color: var(--text-muted); font-size: .92rem; }
+
+    /* cards */
+    .qz-card {
+        background: var(--bg-card);
+        border: 1.5px solid var(--border);
+        border-radius: 14px;
+        margin-bottom: 1.1rem;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(26,37,53,.05);
+        transition: background .22s, border-color .22s;
+    }
+    .qz-card-header {
+        padding: .85rem 1.3rem;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex; align-items: center; gap: .6rem;
+    }
+    .qz-card-header h6 {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1rem; color: var(--text); margin: 0;
+    }
+    .qz-card-body { padding: 1.2rem 1.3rem; }
+    .card-icon { font-size: 1.1rem; }
+
+    /* ── PHASE visibility ─ */
+    #phase-setup   { display: block; }
+    #phase-quiz    { display: none;  }
+    #phase-result  { display: none;  }
+
+    /* ══════════════════════════════════════════════════════
+       TAG SELECTOR
+       ══════════════════════════════════════════════════════ */
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: 1rem; }
+    .tag-chip {
+        padding: .32rem .85rem; border-radius: 20px;
+        font-size: .78rem; font-weight: 500; cursor: pointer;
+        border: 1.5px solid var(--border);
+        background: var(--bg-sidebar); color: var(--text-muted);
+        transition: all .15s; user-select: none;
+    }
+    .tag-chip:hover { border-color: var(--text-faint); color: var(--text); }
+    .tag-chip.selected {
+        background: #1a2535; color: #fff; border-color: #1a2535;
+    }
+    [data-theme="dark"] .tag-chip.selected { background: #e8e6e1; color: #0d1117; border-color: #e8e6e1; }
+
+    .tag-input-row {
+        display: flex; gap: .55rem; margin-bottom: 1rem;
+    }
+    .tag-input-row input {
+        flex: 1; padding: .48rem .9rem; border-radius: 9px;
+        border: 1.5px solid var(--border);
+        background: var(--bg-card); color: var(--text);
+        font-size: .85rem; outline: none;
+        transition: border-color .15s;
+    }
+    .tag-input-row input:focus { border-color: #4f8ef7; }
+    .tag-input-row input::placeholder { color: var(--text-faint); }
+
+    .selected-tags { display: flex; flex-wrap: wrap; gap: .4rem; min-height: 28px; margin-bottom: .9rem; }
+    .sel-tag {
+        display: inline-flex; align-items: center; gap: .3rem;
+        padding: .22rem .7rem; border-radius: 20px;
+        background: #eaf6ee; color: #1a5c37;
+        border: 1px solid #a7e3be; font-size: .76rem; font-weight: 600;
+    }
+    [data-theme="dark"] .sel-tag { background: #0a2018; color: #60c090; border-color: #144a2c; }
+    .sel-tag button {
+        background: none; border: none; color: inherit;
+        cursor: pointer; padding: 0; font-size: .8rem; line-height: 1;
+    }
+
+    /* validation result */
+    .tag-validation {
+        border-radius: 10px; padding: .75rem 1rem;
+        font-size: .83rem; margin-bottom: .9rem; display: none;
+    }
+    .tag-validation.show { display: block; }
+    .tag-validation.ok   { background: #eaf6ee; border: 1px solid #a7e3be; color: #1a5c37; }
+    .tag-validation.warn { background: #fff7ed; border: 1px solid #fcd5a0; color: #7c3d06; }
+    .tag-validation.err  { background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d; }
+    .blocked-list { margin-top: .5rem; padding-left: 1.1rem; }
+    .blocked-list li { margin-bottom: .2rem; }
+
+    /* ══════════════════════════════════════════════════════
+       BUTTONS
+       ══════════════════════════════════════════════════════ */
+    .btn-qz {
+        padding: .52rem 1.3rem; border-radius: 9px;
+        font-size: .87rem; font-weight: 600; cursor: pointer;
+        border: none; transition: opacity .15s, transform .12s;
+    }
+    .btn-qz:hover  { opacity: .85; transform: translateY(-1px); }
+    .btn-qz:active { transform: translateY(0); }
+    .btn-qz:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .btn-primary-qz  { background: #1a2535; color: #fff; }
+    .btn-danger-qz   { background: #c0392b; color: #fff; }
+    .btn-outline-qz  {
+        background: var(--bg-sidebar); color: var(--text);
+        border: 1.5px solid var(--border) !important;
+    }
+    [data-theme="dark"] .btn-primary-qz { background: #e8e6e1; color: #0d1117; }
+
+    /* ══════════════════════════════════════════════════════
+       QUIZ PHASE — timer + progress
+       ══════════════════════════════════════════════════════ */
+    .quiz-topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: .65rem;
+        background: var(--bg-sidebar);
+        border-bottom: 1px solid var(--border-soft);
+        padding: .75rem 1.3rem;
+    }
+    .quiz-progress-meta { font-size: .8rem; color: var(--text-muted); }
+    .quiz-progress-meta strong { color: var(--text); }
+
+    .timer-badge {
+        display: inline-flex; align-items: center; gap: .35rem;
+        padding: .3rem .85rem; border-radius: 99px;
+        font-size: .82rem; font-weight: 700;
+        background: var(--bg-card); border: 1.5px solid var(--border);
+        color: var(--text); font-family: 'Courier New', monospace;
+        transition: color .2s, border-color .2s;
+    }
+    .timer-badge.warning { color: #d97706; border-color: #fcd5a0; }
+    .timer-badge.danger  { color: #dc2626; border-color: #fca5a5; animation: pulse-timer .6s infinite; }
+    @keyframes pulse-timer { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    .qz-progress-bar-wrap {
+        height: 5px; background: var(--border); margin: 0;
+    }
+    .qz-progress-bar-fill {
+        height: 100%; background: #27a35a;
+        transition: width .4s ease;
+    }
+
+    /* difficulty stripe */
+    .diff-stripe {
+        display: inline-flex; align-items: center; gap: .3rem;
+        padding: .2rem .65rem; border-radius: 20px;
+        font-size: .7rem; font-weight: 700; letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+    .diff-easy   { background: #eaf6ee; color: #1a5c37; border: 1px solid #a7e3be; }
+    .diff-medium { background: #fff7ed; color: #7c3d06; border: 1px solid #fcd5a0; }
+    .diff-hard   { background: #fef2f2; color: #7f1d1d; border: 1px solid #fca5a5; }
+    [data-theme="dark"] .diff-easy   { background: #0a2018; color: #60c090; border-color: #144a2c; }
+    [data-theme="dark"] .diff-medium { background: #281c06; color: #e0a050; border-color: #6a4010; }
+    [data-theme="dark"] .diff-hard   { background: #28100e; color: #f08070; border-color: #5a2020; }
+
+    /* question area */
+    .question-card {
+        background: var(--bg-card);
+        border: 1.5px solid var(--border);
+        border-radius: 14px; overflow: hidden;
+        margin-bottom: 1rem;
+    }
+    .question-header {
+        padding: 1rem 1.3rem .7rem;
+        border-bottom: 1px solid var(--border-soft);
+    }
+    .question-num {
+        font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+        text-transform: uppercase; color: var(--text-faint); margin-bottom: .35rem;
+    }
+    .question-text {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1.08rem; color: var(--text); line-height: 1.45; margin: 0;
+    }
+    .question-body { padding: 1rem 1.3rem; }
+
+    /* options */
+    .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    @media(max-width: 560px) { .options-grid { grid-template-columns: 1fr; } }
+
+    .option-btn {
+        display: flex; align-items: flex-start; gap: .65rem;
+        background: var(--bg-sidebar); border: 1.5px solid var(--border);
+        border-radius: 9px; padding: .7rem .9rem; cursor: pointer;
+        text-align: left; font-family: 'DM Sans', sans-serif;
+        font-size: .86rem; color: var(--text); line-height: 1.4;
+        transition: border-color .13s, background .13s, transform .13s; width: 100%;
+    }
+    .option-btn:hover:not(:disabled) {
+        border-color: var(--text); background: var(--bg-card);
+        transform: translateY(-1px);
+    }
+    .option-btn:disabled { cursor: not-allowed; }
+    .option-btn.selected { border-color: #1a2535; background: #1a2535; color: #fff; }
+    [data-theme="dark"] .option-btn.selected { border-color: #e8e6e1; background: #e8e6e1; color: #0d1117; }
+    .option-btn.correct  { border-color: #27a35a !important; background: #edf8f2 !important; color: #1a5c37 !important; }
+    .option-btn.wrong    { border-color: #c0392b !important; background: #fdf0ef !important; color: #7f1d1d !important; }
+
+    .opt-label {
+        flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+        background: rgba(128,128,128,.18); color: var(--text-muted);
+        font-size: .72rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; margin-top: 1px;
+        transition: background .13s, color .13s;
+    }
+    .option-btn.selected .opt-label { background: rgba(255,255,255,.25); color: inherit; }
+    .option-btn.correct .opt-label  { background: #27a35a; color: #fff; }
+    .option-btn.wrong .opt-label    { background: #c0392b; color: #fff; }
+
+    /* explanation box */
+    .explanation-box {
+        display: none; margin-top: .75rem;
+        background: var(--bg-sidebar); border: 1px solid var(--border-soft);
+        border-radius: 8px; padding: .7rem .9rem;
+        font-size: .82rem; color: var(--text-muted); line-height: 1.5;
+    }
+    .explanation-box.show { display: block; }
+    .explanation-box strong { color: var(--text); }
+
+    /* nav buttons */
+    .question-nav {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-top: .8rem; flex-wrap: wrap; gap: .5rem;
+    }
+    .q-dots {
+        display: flex; gap: .3rem; flex-wrap: wrap; justify-content: center; flex: 1;
+    }
+    .q-dot {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--border); cursor: pointer;
+        transition: background .15s, transform .15s;
+    }
+    .q-dot.answered  { background: #27a35a; }
+    .q-dot.current   { transform: scale(1.4); border: 2px solid var(--text-muted); }
+    .q-dot.skipped   { background: #e6952a; }
+
+    /* ══════════════════════════════════════════════════════
+       RESULT PHASE
+       ══════════════════════════════════════════════════════ */
+    .result-hero {
+        text-align: center; padding: 1.5rem 1rem 1rem;
+    }
+    .score-ring {
+        width: 100px; height: 100px; border-radius: 50%;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        margin: 0 auto .9rem;
+        border: 5px solid;
+        transition: border-color .3s;
+    }
+    .score-ring.grade-a { border-color: #27a35a; background: #edf8f2; }
+    .score-ring.grade-b { border-color: #3a70d4; background: #eef5ff; }
+    .score-ring.grade-c { border-color: #d97706; background: #fff7ed; }
+    .score-ring.grade-d { border-color: #dc2626; background: #fef2f2; }
+    .score-num {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1.8rem; line-height: 1; color: var(--text);
+    }
+    .score-den { font-size: .75rem; color: var(--text-faint); }
+    .result-headline {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1.5rem; color: var(--text); margin-bottom: .25rem;
+    }
+    .result-sub { font-size: .88rem; color: var(--text-muted); }
+
+    /* stats strip */
+    .result-stats {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(110px,1fr));
+        gap: .65rem; margin: 1.1rem 0;
+    }
+    .r-stat {
+        background: var(--bg-sidebar); border: 1px solid var(--border-soft);
+        border-radius: 10px; padding: .7rem; text-align: center;
+    }
+    .r-stat-val {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1.4rem; color: var(--text); line-height: 1;
+    }
+    .r-stat-lbl {
+        font-size: .67rem; color: var(--text-faint);
+        text-transform: uppercase; letter-spacing: .05em; margin-top: .2rem;
+    }
+
+    /* diff breakdown bars */
+    .diff-bars { display: flex; flex-direction: column; gap: .6rem; margin: .9rem 0; }
+    .diff-bar-row { display: flex; align-items: center; gap: .7rem; font-size: .82rem; }
+    .diff-bar-label { width: 70px; color: var(--text-muted); flex-shrink: 0; }
+    .diff-bar-track {
+        flex: 1; height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;
+    }
+    .diff-bar-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+    .diff-bar-fill.easy   { background: #27a35a; }
+    .diff-bar-fill.medium { background: #e6952a; }
+    .diff-bar-fill.hard   { background: #c0392b; }
+    .diff-bar-pct { width: 36px; text-align: right; color: var(--text-faint); font-size: .75rem; flex-shrink: 0; }
+
+    /* weak tags */
+    .weak-tags-wrap { margin: 1rem 0; }
+    .weak-tag-pill {
+        display: inline-flex; align-items: center; gap: .35rem;
+        padding: .28rem .8rem; border-radius: 20px; margin: .2rem;
+        background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d;
+        font-size: .78rem; font-weight: 600;
+    }
+    [data-theme="dark"] .weak-tag-pill { background: #28100e; color: #f08070; border-color: #5a2020; }
+
+    /* per-question review */
+    .review-list { display: flex; flex-direction: column; gap: .65rem; }
+    .review-item {
+        background: var(--bg-sidebar); border: 1px solid var(--border-soft);
+        border-radius: 10px; padding: .85rem 1rem;
+    }
+    .review-item.correct-item { border-color: #a7e3be; }
+    .review-item.wrong-item   { border-color: #fca5a5; }
+    .review-q { font-size: .85rem; font-weight: 500; color: var(--text); margin-bottom: .4rem; }
+    .review-meta { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .4rem; }
+    .review-ans { font-size: .78rem; }
+    .review-ans.correct-ans { color: #27a35a; }
+    .review-ans.wrong-ans   { color: #c0392b; }
+    .review-exp { font-size: .78rem; color: var(--text-muted); margin-top: .3rem; font-style: italic; }
+
+    /* efficiency chart */
+    .chart-wrap { position: relative; height: 160px; margin: .5rem 0; }
+    canvas#efficiency-chart { width: 100% !important; }
+
+    /* spinner */
+    .qz-spinner-wrap {
+        display: none; align-items: center; gap: .75rem;
+        padding: 1.2rem; font-size: .88rem; color: var(--text-muted);
+    }
+    .qz-spinner-wrap.show { display: flex; }
+    .qz-spinner {
+        width: 20px; height: 20px;
+        border: 3px solid var(--border); border-top-color: #b84c27;
+        border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="qz-wrap">
+
+    <div class="qz-hero">
+        <h1>🎯 Personalised Quiz</h1>
+        <p>Pick topics you've studied, and we'll generate 15 AI-powered questions — 5 easy, 5 medium, 5 hard.</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         PHASE 1 — SETUP
+         ═══════════════════════════════════════════════════════ -->
+    <div id="phase-setup">
+
+        <!-- Tag picker -->
+        <div class="qz-card">
+            <div class="qz-card-header">
+                <span class="card-icon">🏷️</span>
+                <h6>Choose Your Topics</h6>
+            </div>
+            <div class="qz-card-body">
+
+                <!-- Custom tag input -->
+                <div class="tag-input-row">
+                    <input type="text" id="custom-tag-input"
+                           placeholder="Type a topic and press Enter or comma…"
+                           autocomplete="off">
+                    <button class="btn-qz btn-outline-qz" onclick="addCustomTag()">Add</button>
+                </div>
+
+                <!-- Available tag cloud (from completed modules) -->
+                {% if available_tags %}
+                <p style="font-size:.75rem; color:var(--text-faint); margin-bottom:.45rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700;">
+                    Your completed topics
+                </p>
+                <div class="tag-cloud" id="tag-cloud">
+                    {% for tag in available_tags %}
+                    <span class="tag-chip" onclick="toggleTag('{{ tag }}', this)">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="font-size:.85rem; color:var(--text-faint); font-style:italic;">
+                    Complete some learning modules first to unlock topic suggestions.
+                </p>
+                {% endif %}
+
+                <!-- Selected tags display -->
+                <p style="font-size:.75rem; color:var(--text-faint); margin:.9rem 0 .3rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700;">
+                    Selected tags
+                </p>
+                <div class="selected-tags" id="selected-tags">
+          <span style="font-size:.8rem; color:var(--text-faint); font-style:italic;" id="no-tags-hint">
+            No tags selected yet
+          </span>
+                </div>
+
+                <!-- Validation feedback -->
+                <div class="tag-validation" id="tag-validation"></div>
+
+                <!-- Action row -->
+                <div style="display:flex; gap:.65rem; flex-wrap:wrap; align-items:center; margin-top:.9rem;">
+                    <button class="btn-qz btn-outline-qz" onclick="validateTags()" id="btn-validate">
+                        Check Topics
+                    </button>
+                    <button class="btn-qz btn-primary-qz" onclick="startQuiz()" id="btn-start" disabled>
+                        Generate &amp; Start Quiz →
+                    </button>
+                    <div class="qz-spinner-wrap" id="gen-spinner">
+                        <div class="qz-spinner"></div>
+                        <span>Generating 15 AI questions…</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Efficiency chart (shown only if history exists) -->
+        {% if history %}
+        <div class="qz-card">
+            <div class="qz-card-header">
+                <span class="card-icon">📈</span>
+                <h6>Your Quiz Efficiency Over Time</h6>
+            </div>
+            <div class="qz-card-body">
+                <div class="chart-wrap">
+                    <canvas id="efficiency-chart"></canvas>
+                </div>
+                <p style="font-size:.75rem; color:var(--text-faint); text-align:center; margin-top:.4rem;">
+                    Last {{ history|length }} quiz attempt{{ 's' if history|length != 1 }}
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+    </div><!-- /phase-setup -->
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         PHASE 2 — QUIZ
+         ═══════════════════════════════════════════════════════ -->
+    <div id="phase-quiz">
+
+        <div class="qz-card">
+            <!-- Topbar: progress + timer -->
+            <div class="quiz-topbar">
+                <div class="quiz-progress-meta">
+                    Question <strong id="q-current">1</strong> of <strong>15</strong>
+                    &nbsp;·&nbsp;
+                    <span id="q-answered">0</span> answered
+                </div>
+                <div class="timer-badge" id="timer-badge">⏱ 20:00</div>
+            </div>
+
+            <!-- Progress fill bar -->
+            <div class="qz-progress-bar-wrap">
+                <div class="qz-progress-bar-fill" id="progress-fill" style="width:0%"></div>
+            </div>
+
+            <!-- Question body -->
+            <div class="qz-card-body" id="question-area">
+                <!-- injected by JS -->
+            </div>
+
+            <!-- Navigation -->
+            <div style="padding: 0 1.3rem 1.2rem;">
+                <div class="question-nav">
+                    <button class="btn-qz btn-outline-qz" onclick="prevQuestion()" id="btn-prev" disabled>← Prev</button>
+                    <div class="q-dots" id="q-dots"></div>
+                    <button class="btn-qz btn-outline-qz" onclick="nextQuestion()" id="btn-next">Next →</button>
+                </div>
+                <div style="text-align:center; margin-top:.85rem;">
+                    <button class="btn-qz btn-primary-qz" onclick="confirmSubmit()" id="btn-submit" style="min-width:160px;">
+                        Submit Quiz
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div><!-- /phase-quiz -->
+
+
+    <!-- ═══════════════════════════════════════════════════════
+         PHASE 3 — RESULTS
+         ═══════════════════════════════════════════════════════ -->
+    <div id="phase-result">
+
+        <!-- Score hero -->
+        <div class="qz-card">
+            <div class="qz-card-body result-hero">
+                <div class="score-ring" id="score-ring">
+                    <div class="score-num" id="score-num">—</div>
+                    <div class="score-den">/ 15</div>
+                </div>
+                <h2 class="result-headline" id="result-headline">—</h2>
+                <p class="result-sub" id="result-sub">—</p>
+
+                <div class="result-stats" id="result-stats"></div>
+            </div>
+        </div>
+
+        <!-- Difficulty breakdown -->
+        <div class="qz-card">
+            <div class="qz-card-header"><span class="card-icon">📊</span><h6>Difficulty Breakdown</h6></div>
+            <div class="qz-card-body">
+                <div class="diff-bars" id="diff-bars"></div>
+            </div>
+        </div>
+
+        <!-- Weak topics -->
+        <div class="qz-card" id="weak-card" style="display:none;">
+            <div class="qz-card-header"><span class="card-icon">🔍</span><h6>Topics to Brush Up On</h6></div>
+            <div class="qz-card-body">
+                <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:.6rem;">
+                    You scored below 50% in these topics. Consider revisiting the relevant modules.
+                </p>
+                <div class="weak-tags-wrap" id="weak-tags-wrap"></div>
+                <div style="margin-top:.75rem;" id="weak-module-links"></div>
+            </div>
+        </div>
+
+        <!-- Per-question review -->
+        <div class="qz-card">
+            <div class="qz-card-header"><span class="card-icon">📋</span><h6>Full Review</h6></div>
+            <div class="qz-card-body">
+                <div class="review-list" id="review-list"></div>
+            </div>
+        </div>
+
+        <!-- Try again -->
+        <div style="text-align:center; margin: 1rem 0 2rem;">
+            <button class="btn-qz btn-primary-qz" onclick="resetToSetup()" style="margin-right:.5rem;">
+                Take Another Quiz
+            </button>
+            <a href="{{ url_for('learn.dashboard') }}" class="btn-qz btn-outline-qz">
+                Go to Learn →
+            </a>
+        </div>
+
+    </div><!-- /phase-result -->
+
+</div><!-- /qz-wrap -->
+
+<!-- Chart.js for efficiency line chart -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<script>
+    /* ══════════════════════════════════════════════════════
+       STATE
+       ══════════════════════════════════════════════════════ */
+    let selectedTags  = new Set();
+    let questions     = [];
+    let answerKey     = {};
+    let userAnswers   = {};   // {question_id: chosen_label}
+    let currentQ      = 0;
+    let timerInterval = null;
+    let secondsLeft   = 20 * 60;  // 20 minutes
+    let quizStartTime = null;
+    let canStart      = false;
+
+    /* ══════════════════════════════════════════════════════
+       HISTORY CHART
+       ══════════════════════════════════════════════════════ */
+    const historyData = {{ history | tojson }};
+
+    if (historyData.length > 0) {
+        const ctx = document.getElementById('efficiency-chart');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: historyData.map(h => h.date),
+                    datasets: [{
+                        label: 'Score %',
+                        data: historyData.map(h => h.pct),
+                        borderColor: '#27a35a',
+                        backgroundColor: 'rgba(39,163,90,.12)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#27a35a',
+                        pointRadius: 4,
+                        tension: .35,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            min: 0, max: 100,
+                            ticks: { callback: v => v + '%', font: { size: 11 } },
+                            grid: { color: 'rgba(128,128,128,.1)' }
+                        },
+                        x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       TAG MANAGEMENT
+       ══════════════════════════════════════════════════════ */
+    function toggleTag(tag, el) {
+        if (selectedTags.has(tag)) {
+            selectedTags.delete(tag);
+            el && el.classList.remove('selected');
+        } else {
+            selectedTags.add(tag);
+            el && el.classList.add('selected');
+        }
+        renderSelectedTags();
+        resetValidation();
+    }
+
+    function addCustomTag() {
+        const inp = document.getElementById('custom-tag-input');
+        const val = inp.value.trim().toLowerCase();
+        if (!val) return;
+        // handle comma-separated
+        val.split(',').forEach(t => {
+            t = t.trim();
+            if (t) selectedTags.add(t);
+        });
+        inp.value = '';
+        renderSelectedTags();
+        resetValidation();
+    }
+
+    document.getElementById('custom-tag-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addCustomTag(); }
+    });
+
+    function removeTag(tag) {
+        selectedTags.delete(tag);
+        // deselect chip if present
+        document.querySelectorAll('.tag-chip').forEach(c => {
+            if (c.textContent.trim().toLowerCase() === tag) c.classList.remove('selected');
+        });
+        renderSelectedTags();
+        resetValidation();
+    }
+
+    function renderSelectedTags() {
+        const wrap = document.getElementById('selected-tags');
+        const hint = document.getElementById('no-tags-hint');
+        if (selectedTags.size === 0) {
+            wrap.innerHTML = '';
+            const h = document.createElement('span');
+            h.id = 'no-tags-hint';
+            h.style.cssText = 'font-size:.8rem;color:var(--text-faint);font-style:italic;';
+            h.textContent = 'No tags selected yet';
+            wrap.appendChild(h);
+        } else {
+            wrap.innerHTML = [...selectedTags].map(t =>
+                `<span class="sel-tag">${t} <button onclick="removeTag('${t}')" title="Remove">×</button></span>`
+            ).join('');
+        }
+    }
+
+    function resetValidation() {
+        const v = document.getElementById('tag-validation');
+        v.className = 'tag-validation';
+        v.innerHTML = '';
+        document.getElementById('btn-start').disabled = true;
+        canStart = false;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       VALIDATE TAGS
+       ══════════════════════════════════════════════════════ */
+    async function validateTags() {
+        if (selectedTags.size === 0) {
+            showValidation('Please select at least one topic tag.', 'err');
+            return;
+        }
+        const btn = document.getElementById('btn-validate');
+        btn.disabled = true; btn.textContent = 'Checking…';
+
+        try {
+            const resp = await fetch('/quiz/validate_tags', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: [...selectedTags] })
+            });
+            const data = await resp.json();
+
+            if (data.error) { showValidation(data.error, 'err'); return; }
+
+            let html = '';
+            if (data.allowed.length > 0) {
+                html += `<strong>✓ ${data.allowed.length} module${data.allowed.length > 1 ? 's' : ''} matched</strong> from your completed topics:<br>`;
+                html += data.allowed.map(m => `<span style="font-size:.8rem;">• ${m.title} <em>(${m.level})</em></span>`).join('<br>');
+            }
+
+            if (data.blocked.length > 0) {
+                html += `<br><br><strong>⚠ ${data.blocked.length} topic${data.blocked.length > 1 ? 's' : ''} blocked</strong> — you haven't completed these modules yet:<ul class="blocked-list">`;
+                html += data.blocked.map(m =>
+                    `<li>${m.title} <em>(${m.level})</em> — <a href="${window.location.origin}/learn" style="color:inherit;text-decoration:underline;">Go to Learn →</a></li>`
+                ).join('');
+                html += '</ul>';
+            }
+
+            if (!data.can_start) {
+                html = '✗ None of your selected tags match completed modules. Complete the relevant modules first, or choose different topics.<br>' + html;
+                showValidation(html, 'err');
+            } else if (data.blocked.length > 0) {
+                showValidation(html, 'warn');
+                document.getElementById('btn-start').disabled = false;
+                canStart = true;
+            } else {
+                showValidation(html, 'ok');
+                document.getElementById('btn-start').disabled = false;
+                canStart = true;
+            }
+
+        } catch(e) {
+            showValidation('Network error — please try again.', 'err');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Check Topics';
+        }
+    }
+
+    function showValidation(html, cls) {
+        const v = document.getElementById('tag-validation');
+        v.innerHTML = html;
+        v.className = `tag-validation show ${cls}`;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       START QUIZ
+       ══════════════════════════════════════════════════════ */
+    async function startQuiz() {
+        if (!canStart) { await validateTags(); if (!canStart) return; }
+
+        const btn = document.getElementById('btn-start');
+        const spinner = document.getElementById('gen-spinner');
+        btn.disabled = true;
+        spinner.classList.add('show');
+
+        try {
+            const resp = await fetch('/quiz/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: [...selectedTags] })
+            });
+            const data = await resp.json();
+
+            if (data.error) {
+                showValidation('Generation error: ' + data.error, 'err');
+                btn.disabled = false; spinner.classList.remove('show');
+                return;
+            }
+
+            questions  = data.questions;
+            answerKey  = data.answer_key;
+            userAnswers = {};
+            currentQ   = 0;
+
+            showPhase('quiz');
+            renderQuestion(0);
+            renderDots();
+            startTimer();
+            quizStartTime = Date.now();
+
+        } catch(e) {
+            showValidation('Failed to generate quiz — check your connection.', 'err');
+            btn.disabled = false; spinner.classList.remove('show');
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       TIMER
+       ══════════════════════════════════════════════════════ */
+    function startTimer() {
+        secondsLeft = 20 * 60;
+        updateTimerDisplay();
+        timerInterval = setInterval(() => {
+            secondsLeft--;
+            updateTimerDisplay();
+            if (secondsLeft <= 0) { clearInterval(timerInterval); autoSubmit(); }
+        }, 1000);
+    }
+
+    function updateTimerDisplay() {
+        const m = Math.floor(secondsLeft / 60);
+        const s = secondsLeft % 60;
+        const badge = document.getElementById('timer-badge');
+        badge.textContent = `⏱ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        badge.className = 'timer-badge';
+        if (secondsLeft <= 120) badge.classList.add('danger');
+        else if (secondsLeft <= 300) badge.classList.add('warning');
+    }
+
+    function autoSubmit() {
+        if (confirm('Time is up! Your quiz will be submitted now.')) submitQuiz();
+        else submitQuiz();
+    }
+
+    /* ══════════════════════════════════════════════════════
+       RENDER QUESTION
+       ══════════════════════════════════════════════════════ */
+    function renderQuestion(idx) {
+        currentQ = idx;
+        const q = questions[idx];
+        const answered = Object.keys(userAnswers).length;
+
+        document.getElementById('q-current').textContent = idx + 1;
+        document.getElementById('q-answered').textContent = answered;
+        document.getElementById('progress-fill').style.width =
+            `${(answered / 15) * 100}%`;
+
+        document.getElementById('btn-prev').disabled = idx === 0;
+        document.getElementById('btn-next').disabled = idx === questions.length - 1;
+
+        const diffClass = `diff-${q.difficulty}`;
+        const chosen = userAnswers[q.id] || null;
+
+        document.getElementById('question-area').innerHTML = `
+    <div class="question-header">
+      <div class="question-num">
+        Question ${idx + 1} of 15
+        &nbsp;·&nbsp;
+        <span class="diff-stripe ${diffClass}">${q.difficulty}</span>
+        &nbsp;·&nbsp;
+        <span style="font-size:.72rem; color:var(--text-faint);">${q.tag}</span>
+      </div>
+      <p class="question-text">${q.question}</p>
+    </div>
+    <div class="question-body">
+      <div class="options-grid" id="opts-${q.id}">
+        ${Object.entries(q.options).map(([lbl, txt]) => `
+          <button class="option-btn ${chosen === lbl ? 'selected' : ''}"
+                  data-label="${lbl}" data-qid="${q.id}"
+                  onclick="selectOption(${q.id}, '${lbl}', this)">
+            <span class="opt-label">${lbl}</span>
+            <span>${txt}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+        // Update dots
+        document.querySelectorAll('.q-dot').forEach((d, i) => {
+            d.classList.toggle('current', i === idx);
+        });
+    }
+
+    function selectOption(qid, label, btn) {
+        userAnswers[qid] = label;
+        // Highlight selected, clear others
+        document.querySelectorAll(`[data-qid="${qid}"]`).forEach(b => {
+            b.classList.toggle('selected', b.dataset.label === label);
+        });
+        // Update dot
+        const dot = document.querySelectorAll('.q-dot')[currentQ];
+        if (dot) dot.classList.add('answered');
+
+        document.getElementById('q-answered').textContent = Object.keys(userAnswers).length;
+        document.getElementById('progress-fill').style.width =
+            `${(Object.keys(userAnswers).length / 15) * 100}%`;
+    }
+
+    function nextQuestion() {
+        if (currentQ < questions.length - 1) renderQuestion(currentQ + 1);
+    }
+    function prevQuestion() {
+        if (currentQ > 0) renderQuestion(currentQ - 1);
+    }
+
+    function renderDots() {
+        document.getElementById('q-dots').innerHTML =
+            questions.map((_, i) =>
+                `<span class="q-dot ${i === 0 ? 'current' : ''}" onclick="renderQuestion(${i})" title="Q${i+1}"></span>`
+            ).join('');
+    }
+
+    /* ══════════════════════════════════════════════════════
+       SUBMIT
+       ══════════════════════════════════════════════════════ */
+    function confirmSubmit() {
+        const answered = Object.keys(userAnswers).length;
+        if (answered < 15) {
+            if (!confirm(`You've answered ${answered}/15 questions. Unanswered questions will be marked wrong. Submit anyway?`))
+                return;
+        }
+        submitQuiz();
+    }
+
+    async function submitQuiz() {
+        clearInterval(timerInterval);
+        const timeTaken = Math.round((Date.now() - quizStartTime) / 1000);
+
+        const btn = document.getElementById('btn-submit');
+        btn.disabled = true; btn.textContent = 'Submitting…';
+
+        try {
+            const resp = await fetch('/quiz/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    answers:    userAnswers,
+                    answer_key: answerKey,
+                    tags:       [...selectedTags],
+                    time_taken: timeTaken,
+                })
+            });
+            const data = await resp.json();
+            if (data.error) { alert('Error: ' + data.error); btn.disabled = false; btn.textContent = 'Submit Quiz'; return; }
+            renderResults(data);
+            showPhase('result');
+        } catch(e) {
+            alert('Submission failed — please try again.');
+            btn.disabled = false; btn.textContent = 'Submit Quiz';
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       RENDER RESULTS
+       ══════════════════════════════════════════════════════ */
+    function renderResults(data) {
+        const pct = data.pct;
+        let grade, headline, sub;
+        if (pct >= 87)      { grade='a'; headline='Excellent Work! 🎉'; sub='Outstanding performance across all difficulties.'; }
+        else if (pct >= 67) { grade='b'; headline='Good Job! 👍';      sub='Solid understanding with room to refine.'; }
+        else if (pct >= 47) { grade='c'; headline='Not Bad 🤔';         sub='Some gaps to address — check the review below.'; }
+        else                { grade='d'; headline='Needs More Practice'; sub='Don\'t worry — focus on the weak topics below.'; }
+
+        document.getElementById('score-ring').className = `score-ring grade-${grade}`;
+        document.getElementById('score-num').textContent = data.score;
+        document.getElementById('result-headline').textContent = headline;
+        document.getElementById('result-sub').textContent = sub;
+
+        // Stats strip
+        const mins = Math.floor((data.time_taken || 0) / 60);
+        const secs = (data.time_taken || 0) % 60;
+        document.getElementById('result-stats').innerHTML = `
+    <div class="r-stat"><div class="r-stat-val">${data.score}/15</div><div class="r-stat-lbl">Score</div></div>
+    <div class="r-stat"><div class="r-stat-val">${pct}%</div><div class="r-stat-lbl">Accuracy</div></div>
+    <div class="r-stat"><div class="r-stat-val">${data.points_earned}</div><div class="r-stat-lbl">Points Earned</div></div>
+    <div class="r-stat"><div class="r-stat-val">${mins}:${String(secs).padStart(2,'0')}</div><div class="r-stat-lbl">Time Taken</div></div>
+  `;
+
+        // Diff bars
+        const db_ = data.diff_breakdown;
+        document.getElementById('diff-bars').innerHTML = ['easy','medium','hard'].map(d => {
+            const c = db_[d]?.correct || 0;
+            const t = db_[d]?.total   || 5;
+            const p = t > 0 ? Math.round(c / t * 100) : 0;
+            return `
+      <div class="diff-bar-row">
+        <span class="diff-bar-label">${d.charAt(0).toUpperCase()+d.slice(1)}</span>
+        <div class="diff-bar-track"><div class="diff-bar-fill ${d}" style="width:${p}%"></div></div>
+        <span class="diff-bar-pct">${c}/${t}</span>
+      </div>`;
+        }).join('');
+
+        // Weak tags
+        if (data.weak_tags && data.weak_tags.length > 0) {
+            document.getElementById('weak-card').style.display = 'block';
+            document.getElementById('weak-tags-wrap').innerHTML =
+                data.weak_tags.map(t =>
+                    `<span class="weak-tag-pill">⚠ ${t}</span>`
+                ).join('');
+            document.getElementById('weak-module-links').innerHTML =
+                `<a href="${window.location.origin}/learn" class="btn-qz btn-outline-qz" style="font-size:.82rem;">
+         📚 Review Modules →
+       </a>`;
+        }
+
+        // Full review
+        document.getElementById('review-list').innerHTML = data.results.map((r, i) => {
+            const q = questions.find(q => String(q.id) === String(r.id));
+            const qText = q ? q.question : `Question ${r.id}`;
+            const opts  = q ? q.options  : {};
+            const correctText = opts[r.correct] || '';
+            const chosenText  = r.chosen ? (opts[r.chosen] || 'No answer') : 'No answer';
+            return `
+      <div class="review-item ${r.is_correct ? 'correct-item' : 'wrong-item'}">
+        <div class="review-q">${i+1}. ${qText}</div>
+        <div class="review-meta">
+          <span class="diff-stripe diff-${r.difficulty}">${r.difficulty}</span>
+          <span style="font-size:.72rem; color:var(--text-faint);">${r.tag}</span>
+        </div>
+        <div class="review-ans ${r.is_correct ? 'correct-ans' : 'wrong-ans'}">
+          ${r.is_correct ? '✓ Correct' : '✗ Wrong'} —
+          Your answer: <strong>${r.chosen ? r.chosen+': '+chosenText : 'Not answered'}</strong>
+          ${!r.is_correct ? `&nbsp;·&nbsp; Correct: <strong>${r.correct}: ${correctText}</strong>` : ''}
+        </div>
+        ${r.explanation ? `<div class="review-exp">💡 ${r.explanation}</div>` : ''}
+      </div>`;
+        }).join('');
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PHASE SWITCHING
+       ══════════════════════════════════════════════════════ */
+    function showPhase(name) {
+        document.getElementById('phase-setup').style.display  = name === 'setup'  ? 'block' : 'none';
+        document.getElementById('phase-quiz').style.display   = name === 'quiz'   ? 'block' : 'none';
+        document.getElementById('phase-result').style.display = name === 'result' ? 'block' : 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetToSetup() {
+        clearInterval(timerInterval);
+        questions = []; answerKey = {}; userAnswers = {};
+        document.getElementById('btn-start').disabled = true;
+        document.getElementById('weak-card').style.display = 'none';
+        canStart = false;
+        showPhase('setup');
+    }
+</script>
+{% endblock %}

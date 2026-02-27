@@ -8,6 +8,7 @@ from neurix.config import Config
 from flask_migrate import Migrate
 
 
+
 db = SQLAlchemy()
 migrate = Migrate()
 bcrypt = Bcrypt()
@@ -19,6 +20,7 @@ socketio = SocketIO(async_mode="eventlet")
 
 
 def create_app(config_class=Config):
+
     app = Flask(__name__)
     app.config.from_object(config_class)
 
@@ -34,20 +36,19 @@ def create_app(config_class=Config):
     from neurix.main.routes import main
     from neurix.playground import playground
     from neurix.learn import learn
-    from neurix.datalab import datalab          # ← new
-    from neurix.calendar import calendar          # ← add this
+    from neurix.datalab import datalab
+    from neurix.calendar import calendar
+    from neurix.quiz import quiz
 
-    app.register_blueprint(calendar, url_prefix='/calendar')  # ← add this
-    app.register_blueprint(playground)
     app.register_blueprint(users)
     app.register_blueprint(posts)
     app.register_blueprint(main)
     app.register_blueprint(learn)
-    app.register_blueprint(datalab)             # ← new
-    
-        # ── Global leaderboard context processor ─────────────────────────────────
-    # Injects top-10 leaderboard into every template automatically.
-    # Ordered by points desc, then username asc for tiebreaking.
+    app.register_blueprint(playground)
+    app.register_blueprint(datalab)
+    app.register_blueprint(calendar, url_prefix='/calendar')
+    app.register_blueprint(quiz)
+
     @app.context_processor
     def inject_leaderboard():
         from neurix.models import User
