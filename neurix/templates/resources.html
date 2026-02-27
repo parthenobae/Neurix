@@ -1,0 +1,277 @@
+{% extends "layout.html" %}
+{% block content_col_class %}col-md-10{% endblock %}
+{% block sidebar %}{% endblock %}
+
+{% block content %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  /* ── Page header ─────────────────────────────── */
+  .res-page-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid #e8e4de;
+  }
+  .res-page-header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    color: #1a2535;
+    margin-bottom: .3rem;
+  }
+  .res-page-header p {
+    font-size: .9rem;
+    color: #9a8f85;
+    margin: 0;
+  }
+
+  /* ── Section label ───────────────────────────── */
+  .res-section {
+    margin-bottom: 2.2rem;
+  }
+  .res-section-label {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: #9a8f85;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .res-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #ede9e3;
+  }
+
+  /* ── Resource cards grid ─────────────────────── */
+  .res-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .res-card {
+    background: #fff;
+    border: 1.5px solid #e5e0d8;
+    border-radius: 14px;
+    padding: 1.2rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    text-decoration: none;
+    transition: border-color .18s, box-shadow .18s, transform .18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .res-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--card-accent, #1a2535);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .25s ease;
+  }
+  .res-card:hover {
+    border-color: #bbb5ac;
+    box-shadow: 0 4px 20px rgba(26,37,53,.09);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+  .res-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  .res-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .5rem;
+  }
+  .res-card-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .res-card-arrow {
+    font-size: .8rem;
+    color: #c5bfb7;
+    transition: color .15s, transform .15s;
+    margin-top: .1rem;
+  }
+  .res-card:hover .res-card-arrow {
+    color: #1a2535;
+    transform: translate(2px, -2px);
+  }
+
+  .res-card-title {
+    font-size: .92rem;
+    font-weight: 600;
+    color: #1a2535;
+    line-height: 1.35;
+    margin: 0;
+  }
+  .res-card-desc {
+    font-size: .78rem;
+    color: #6b7280;
+    line-height: 1.5;
+    margin: 0;
+    flex: 1;
+  }
+  .res-card-tag {
+    display: inline-block;
+    font-size: .63rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: .18rem .5rem;
+    border-radius: 99px;
+    background: var(--tag-bg, #f0ede8);
+    color: var(--tag-color, #6b7280);
+    margin-top: .2rem;
+    align-self: flex-start;
+  }
+
+  /* ── Accent colours per section ──────────────── */
+  .accent-blue  { --card-accent: #3a70d4; --tag-bg: #e0edff; --tag-color: #3a70d4; }
+  .accent-green { --card-accent: #27a35a; --tag-bg: #dcfce7; --tag-color: #15803d; }
+  .accent-amber { --card-accent: #d97706; --tag-bg: #fef3c7; --tag-color: #b45309; }
+  .accent-rose  { --card-accent: #e11d48; --tag-bg: #ffe4e6; --tag-color: #be123c; }
+
+  @media(max-width: 600px) {
+    .res-grid { grid-template-columns: 1fr; }
+    .res-page-header h1 { font-size: 1.5rem; }
+  }
+</style>
+
+<!-- Header -->
+<div class="res-page-header">
+  <h1>Resources</h1>
+  <p>Curated learning materials for machine learning, data science, and deployment.</p>
+</div>
+
+<!-- Courses -->
+<div class="res-section">
+  <div class="res-section-label">Courses</div>
+  <div class="res-grid">
+
+    <a class="res-card accent-blue" href="https://developers.google.com/machine-learning/crash-course" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">Google ML Crash Course</p>
+      <p class="res-card-desc">Beginner-friendly, practical introduction to machine learning with animated videos, interactive visualisations, and hands-on exercises.</p>
+      <span class="res-card-tag">Free</span>
+    </a>
+
+    <a class="res-card accent-blue" href="https://www.coursera.org/specializations/machine-learning-introduction" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">Andrew Ng — ML Specialization</p>
+      <p class="res-card-desc">One of the most popular ML courses globally. Builds a strong conceptual foundation covering supervised, unsupervised, and reinforcement learning.</p>
+      <span class="res-card-tag">Coursera</span>
+    </a>
+
+    <a class="res-card accent-blue" href="https://www.kaggle.com/learn" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">Kaggle Micro-Courses</p>
+      <p class="res-card-desc">Hands-on learning with real datasets. Short focused courses covering Python, pandas, ML, deep learning, and more. Excellent for beginners.</p>
+      <span class="res-card-tag">Free</span>
+    </a>
+
+  </div>
+</div>
+
+<!-- Books -->
+<div class="res-section">
+  <div class="res-section-label">Books</div>
+  <div class="res-grid">
+
+    <a class="res-card accent-green" href="https://www.statlearning.com/" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">Introduction to Statistical Learning</p>
+      <p class="res-card-desc">Free, widely used ML textbook with a practical focus. Covers regression, classification, resampling, tree-based methods, SVMs, and deep learning.</p>
+      <span class="res-card-tag">Free PDF</span>
+    </a>
+
+    <a class="res-card accent-green" href="https://www.oreilly.com/library/view/hands-on-machine-learning/" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">Hands-On ML with Scikit-Learn &amp; TensorFlow</p>
+      <p class="res-card-desc">Industry-focused practical ML book by Aurélien Géron. Covers end-to-end ML projects, neural networks, and production deployment.</p>
+      <span class="res-card-tag">O'Reilly</span>
+    </a>
+
+  </div>
+</div>
+
+<!-- Datasets -->
+<div class="res-section">
+  <div class="res-section-label"> Datasets</div>
+  <div class="res-grid">
+
+    <a class="res-card accent-amber" href="https://archive.ics.uci.edu/ml/index.php" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">UCI Machine Learning Repository</p>
+      <p class="res-card-desc">Large collection of classic ML datasets used by millions of researchers. Includes Iris, Wine Quality, Heart Disease, and 600+ more datasets.</p>
+      <span class="res-card-tag">Free</span>
+    </a>
+
+  </div>
+</div>
+
+<!-- Tools & Deployment -->
+<div class="res-section">
+  <div class="res-section-label">Tools &amp; Deployment</div>
+  <div class="res-grid">
+
+    <a class="res-card accent-rose" href="https://fastapi.tiangolo.com/" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">FastAPI Documentation</p>
+      <p class="res-card-desc">Modern, high-performance way to deploy ML models as APIs using Python type hints. Used in production at Microsoft, Netflix, and Uber.</p>
+      <span class="res-card-tag">Docs</span>
+    </a>
+
+  </div>
+</div>
+
+<!-- Videos -->
+<div class="res-section">
+  <div class="res-section-label"> Videos</div>
+  <div class="res-grid">
+
+    <a class="res-card accent-rose" href="https://www.youtube.com/c/joshstarmer" target="_blank" rel="noopener">
+      <div class="res-card-top">
+        <span class="res-card-icon"></span>
+        <span class="res-card-arrow">↗</span>
+      </div>
+      <p class="res-card-title">StatQuest with Josh Starmer</p>
+      <p class="res-card-desc">Clear, step-by-step explanations of ML algorithms and statistics. Perfect for building genuine understanding of how models actually work.</p>
+      <span class="res-card-tag">YouTube · Free</span>
+    </a>
+
+  </div>
+</div>
+
+{% endblock %}
