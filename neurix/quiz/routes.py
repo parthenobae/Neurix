@@ -96,8 +96,8 @@ def generate():
         questions = _generate_quiz(allowed, tags)
     except (json.JSONDecodeError, ValueError) as e:
         return jsonify({"error": f"Generation failed: {str(e)}"}), 500
-    except Exception:
-        return jsonify({"error": "Groq API error — check your API key"}), 500
+    except Exception as e:
+        return jsonify({"error": f"Groq error: {str(e)}"}), 500
 
     # Strip answers before sending to client (stored server-side in session or
     # re-validated on submit). We embed them in a hidden signed payload instead

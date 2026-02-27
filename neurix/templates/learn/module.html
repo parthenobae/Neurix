@@ -460,7 +460,7 @@ async function submitMCQ() {
   const fb = document.getElementById('mcq-feedback');
   fb.className = 'mcq-feedback visible ' + (data.success ? 'success' : 'error');
   fb.textContent = data.success
-    ? (data.already_done ? '✓ Already completed.' : `✓ Correct! ${data.message}`)
+    ? '✓ Correct!'
     : '✗ ' + data.message;
 
   if (data.success) {
@@ -505,7 +505,7 @@ async function runCode() {
     outputEl.className = 'ide-output visible' + (data.stderr && !data.stdout ? ' stderr' : '');
 
     if (data.passed && !ALREADY_DONE) {
-      passEl.textContent = `✅ Challenge passed! ${data.points_earned > 0 ? '+' + data.points_earned + ' pts earned!' : 'Already completed.'}`;
+      passEl.textContent = `✅ Challenge passed!${data.points_earned > 0 ? ' +' + data.points_earned + ' pts earned!' : ''}`;
       passEl.className = 'output-pass visible';
       codePassed = true;
       // Show MCQ section

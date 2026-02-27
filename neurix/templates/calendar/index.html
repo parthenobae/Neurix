@@ -86,18 +86,28 @@
         padding: .6rem .75rem;
         border-radius: 9px; border: 1px solid #ede9e3;
         background: #faf8f4; margin-bottom: .5rem;
+        /* explicit opacity for all states */
+        opacity: 1;
+        transition: opacity .2s;
     }
     .task-item.done    { opacity: .55; }
     .task-item.skipped { opacity: .38; }
+    .task-item.pending { opacity: 1; }   /* explicit reset — prevents stale fade */
+
     .task-check {
         flex-shrink: 0; margin-top: .15rem;
         width: 18px; height: 18px; border-radius: 50%;
         border: 2px solid #c5bfb7; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
         transition: background .15s, border-color .15s;
+        font-size: .7rem; line-height: 1;
+        /* explicit reset */
+        background: transparent; color: transparent;
     }
     .task-check.done    { background: #22c55e; border-color: #22c55e; color: #fff; }
-    .task-check.skipped { background: #d1d5db; border-color: #d1d5db; }
+    .task-check.skipped { background: #d1d5db; border-color: #d1d5db; color: transparent; }
+    .task-check.pending { background: transparent; border-color: #c5bfb7; color: transparent; }
+
     .task-body { flex: 1; min-width: 0; }
     .task-title { font-size: .85rem; font-weight: 500; color: #1a2535; }
     .task-desc  { font-size: .77rem; color: #9a8f85; margin-top: .1rem; }
@@ -263,12 +273,12 @@
         body.innerHTML = tasks.map(t => `
     <div class="task-item ${t.status}" id="task-${t.id}">
       <div class="task-check ${t.status}" onclick="cycleStatus(${t.id})">
-        ${t.status==='done' ? '✓' : ''}
+        ${t.status === 'done' ? '✓' : ''}
       </div>
       <div class="task-body">
         <div class="task-title">
           ${escHtml(t.title)}
-          ${t.source==='roadmap' ? '<span class="task-badge">roadmap</span>' : ''}
+          ${t.source === 'roadmap' ? '<span class="task-badge">roadmap</span>' : ''}
         </div>
         ${t.description ? `<div class="task-desc">${escHtml(t.description)}</div>` : ''}
       </div>
@@ -283,6 +293,29 @@
 
     /* ── cycle task status ───────────────────────────────────────────── */
     async function cycleStatus(id) {
+        // Optimistically update the DOM immediately before the fetch
+        const item  = document.getElementById(`task-${id}`);
+        const check = item ? item.querySelector('.task-check') : null;
+
+        if (item && check) {
+            const current = item.classList.contains('done')
+                ? 'done' : item.classList.contains('skipped')
+                ? 'skipped' : 'pending';
+            const next = current === 'pending' ? 'done'
+                       : current === 'done'    ? 'skipped'
+                       : 'pending';
+
+            // Swap classes on item
+            item.classList.remove('pending', 'done', 'skipped');
+            item.classList.add(next);
+
+            // Swap classes on check circle
+            check.classList.remove('pending', 'done', 'skipped');
+            check.classList.add(next);
+            check.textContent = next === 'done' ? '✓' : '';
+        }
+
+        // Then confirm with server and re-render for accuracy
         const url = `/calendar/tasks/${id}/status`;
         const res  = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
         const t    = await res.json();

@@ -2,88 +2,74 @@ import json
 import os
 from groq import Groq
 from flask_login import current_user
-from datetime import datetime, timezone
 from neurix.models import ModuleProgress
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MODULE CATALOGUE
-# Maps every module_id (as stored in ModuleProgress) to its display name,
-# topic tags, and which level it belongs to.
-# Keep this in sync with your learn/routes.py MODULES definition.
+# Keys must exactly match the `module_id` values stored in ModuleProgress,
+# which come from the `id` field in learn/content.py MODULES list.
 # ─────────────────────────────────────────────────────────────────────────────
 MODULE_CATALOGUE = {
+
     # ── Beginner ──────────────────────────────────────────────────────────────
-    "beginner_what_is_ml": {
+    "b01_what_is_ml": {
         "title": "What is Machine Learning?",
         "level": "beginner",
         "tags": ["machine learning", "ml basics", "ai", "introduction"],
     },
-    "beginner_types_of_ml": {
-        "title": "Types of Machine Learning",
+    "b02_python_numpy": {
+        "title": "Python & NumPy Basics",
         "level": "beginner",
-        "tags": ["supervised learning", "unsupervised learning", "reinforcement learning", "ml basics"],
+        "tags": ["python", "numpy", "arrays", "ml basics"],
     },
-    "beginner_data_preprocessing": {
-        "title": "Data Preprocessing",
-        "level": "beginner",
-        "tags": ["data preprocessing", "feature engineering", "normalization", "missing values"],
-    },
-    "beginner_linear_regression": {
+    "b03_linear_regression": {
         "title": "Linear Regression",
         "level": "beginner",
         "tags": ["linear regression", "regression", "supervised learning"],
     },
+    "b04_data_preprocessing": {
+        "title": "Data Preprocessing",
+        "level": "beginner",
+        "tags": ["data preprocessing", "feature engineering", "normalisation", "missing values"],
+    },
+
     # ── Intermediate ──────────────────────────────────────────────────────────
-    "intermediate_decision_trees": {
-        "title": "Decision Trees",
+    "i01_logistic_regression": {
+        "title": "Logistic Regression",
         "level": "intermediate",
-        "tags": ["decision trees", "classification", "supervised learning"],
+        "tags": ["logistic regression", "classification", "supervised learning"],
     },
-    "intermediate_random_forests": {
-        "title": "Random Forests",
+    "i02_decision_trees": {
+        "title": "Decision Trees & Random Forests",
         "level": "intermediate",
-        "tags": ["random forests", "ensemble methods", "bagging"],
+        "tags": ["decision trees", "random forests", "ensemble methods", "classification"],
     },
-    "intermediate_svm": {
-        "title": "Support Vector Machines",
-        "level": "intermediate",
-        "tags": ["svm", "support vector machines", "classification", "kernel"],
-    },
-    "intermediate_neural_networks": {
+    "i03_neural_networks": {
         "title": "Neural Networks",
         "level": "intermediate",
-        "tags": ["neural networks", "deep learning", "perceptron", "backpropagation"],
+        "tags": ["neural networks", "deep learning", "backpropagation", "perceptron"],
     },
-    "intermediate_model_evaluation": {
-        "title": "Model Evaluation",
+    "i04_sql_for_ml": {
+        "title": "SQL for ML Data Pipelines",
         "level": "intermediate",
-        "tags": ["model evaluation", "cross validation", "overfitting", "bias variance"],
+        "tags": ["sql", "data pipelines", "databases", "feature engineering"],
     },
+
     # ── Advanced ──────────────────────────────────────────────────────────────
-    "advanced_cnn": {
+    "a01_cnn": {
         "title": "Convolutional Neural Networks",
         "level": "advanced",
         "tags": ["cnn", "convolutional neural networks", "computer vision", "deep learning"],
     },
-    "advanced_rnn": {
-        "title": "Recurrent Neural Networks",
-        "level": "advanced",
-        "tags": ["rnn", "lstm", "sequence models", "nlp", "time series"],
-    },
-    "advanced_transformers": {
+    "a02_transformers": {
         "title": "Transformers & Attention",
         "level": "advanced",
         "tags": ["transformers", "attention mechanism", "bert", "nlp", "gpt"],
     },
-    "advanced_clustering": {
-        "title": "Clustering Algorithms",
+    "a03_js_data_viz": {
+        "title": "Data Visualisation with JavaScript",
         "level": "advanced",
-        "tags": ["clustering", "k-means", "unsupervised learning", "dbscan"],
-    },
-    "advanced_reinforcement": {
-        "title": "Reinforcement Learning",
-        "level": "advanced",
-        "tags": ["reinforcement learning", "q-learning", "policy gradient", "reward"],
+        "tags": ["data visualisation", "javascript", "charts", "d3"],
     },
 }
 
@@ -97,20 +83,26 @@ def _get_completed_module_ids(user_id):
 def _tags_to_modules(requested_tags):
     """
     Given a list of user-requested tags, return:
-      allowed   – modules whose tags overlap AND user completed them
-      blocked   – modules whose tags overlap but user hasn't completed them
-    Each entry: {module_id, title, level, matched_tags}
+      allowed  – modules whose tags overlap AND user completed them
+      blocked  – modules whose tags overlap but user hasn't completed them
     """
     requested_lower = [t.strip().lower() for t in requested_tags if t.strip()]
     completed = _get_completed_module_ids(current_user.id)
 
     allowed, blocked = [], []
     for mid, meta in MODULE_CATALOGUE.items():
-        overlap = [t for t in meta["tags"] if any(r in t or t in r for r in requested_lower)]
+        overlap = [
+            t for t in meta["tags"]
+            if any(r in t or t in r for r in requested_lower)
+        ]
         if not overlap:
             continue
-        entry = {"module_id": mid, "title": meta["title"],
-                 "level": meta["level"], "matched_tags": overlap}
+        entry = {
+            "module_id":    mid,
+            "title":        meta["title"],
+            "level":        meta["level"],
+            "matched_tags": overlap,
+        }
         if mid in completed:
             allowed.append(entry)
         else:
@@ -127,7 +119,7 @@ def _generate_quiz(allowed_modules, tags):
     client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
     module_titles = [m["title"] for m in allowed_modules]
-    tag_str = ", ".join(tags)
+    tag_str       = ", ".join(tags)
 
     system_prompt = """You are an ML quiz generator. Return ONLY valid JSON — no markdown, no explanation.
 Schema: {"questions": [{"id":1,"tag":"topic","difficulty":"easy","question":"...","options":{"A":"...","B":"...","C":"...","D":"..."},"answer":"A","explanation":"..."}]}
@@ -145,7 +137,7 @@ Distribution: exactly 5 easy, 5 medium, 5 hard questions.
 Mix the topics across all difficulties."""
 
     resp = client.chat.completions.create(
-        model="llama3-70b-8192",
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user",   "content": user_prompt},
@@ -157,13 +149,12 @@ Mix the topics across all difficulties."""
     raw = resp.choices[0].message.content.strip()
     raw = raw.replace("```json", "").replace("```", "").strip()
 
-    data = json.loads(raw)
+    data      = json.loads(raw)
     questions = data.get("questions", [])
 
     if len(questions) != 15:
         raise ValueError(f"Expected 15 questions, got {len(questions)}")
 
-    # Validate and normalise
     valid_diff = {"easy", "medium", "hard"}
     for q in questions:
         if q.get("difficulty") not in valid_diff:
