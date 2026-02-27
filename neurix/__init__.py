@@ -5,15 +5,17 @@ from flask_login import LoginManager
 from flask_mail import Mail
 from flask_socketio import SocketIO
 from neurix.config import Config
+from flask_migrate import Migrate
 
 
 db = SQLAlchemy()
+migrate = Migrate()
 bcrypt = Bcrypt()
 login_manager = LoginManager()
 login_manager.login_view = 'users.login'
 login_manager.login_message_category = 'info'
 mail = Mail()
-socketio = SocketIO(async_mode="threading")
+socketio = SocketIO(async_mode="eventlet")
 
 
 def create_app(config_class=Config):
@@ -25,6 +27,7 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     mail.init_app(app)
     socketio.init_app(app)
+    migrate.init_app(app, db)
 
     from neurix.users.routes import users
     from neurix.posts.routes import posts
