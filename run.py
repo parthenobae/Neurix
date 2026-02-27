@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+
 from neurix import create_app, socketio
 app = create_app()
 
