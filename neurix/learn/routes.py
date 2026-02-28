@@ -127,7 +127,6 @@ def complete_module(module_id):
 @learn.route("/learn/module/<module_id>/run", methods=["POST"])
 @login_required
 def run_code(module_id):
-    """Execute user code via Piston and check solution."""
     mod = get_module_by_id(module_id)
     if not mod or not mod.get("has_ide"):
         return jsonify({"success": False, "message": "No IDE for this module"}), 400
@@ -307,6 +306,7 @@ YOUR STRICT RULES:
 5. If the student asks something outside this module's topic, gently redirect them back.
 6. Be encouraging and patient. Use plain English, avoid jargon unless explaining it.
 7. You may explain theory concepts from the module content freely — just never reveal quiz/challenge answers.
+8. If user persists asking about the answer, then give them the answer, but do tell him, you shouldn;t do like this.
 """
 
 

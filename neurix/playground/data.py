@@ -1,112 +1,61 @@
-
-# Each question has: question, answer (correct), distractors (3 wrong options)
-QUESTIONS = [
-    {
-        "question": "Which algorithm is commonly used for binary classification and outputs probabilities using a sigmoid function?",
-        "answer": "Logistic Regression",
-        "distractors": ["Linear Regression", "Decision Tree", "K-Nearest Neighbors"],
-    },
-    {
-        "question": "What does overfitting mean in machine learning?",
-        "answer": "The model memorises training data and fails to generalise",
-        "distractors": [
-            "The model is too simple to capture patterns",
-            "The model converges too slowly",
-            "The model uses too few features",
-        ],
-    },
-    {
-        "question": "Which validation strategy repeatedly splits data into training and validation folds?",
-        "answer": "K-Fold Cross Validation",
-        "distractors": ["Hold-Out Validation", "Leave-One-Out", "Bootstrap Sampling"],
-    },
-    {
-        "question": "In gradient descent, what parameter controls the step size of each update?",
-        "answer": "Learning Rate",
-        "distractors": ["Momentum", "Batch Size", "Weight Decay"],
-    },
-    {
-        "question": "Which metric is often preferred over accuracy for imbalanced binary datasets?",
-        "answer": "F1 Score",
-        "distractors": ["Mean Squared Error", "R² Score", "Log Loss"],
-    },
-    {
-        "question": "What type of neural network layer connects every neuron to every neuron in the next layer?",
-        "answer": "Fully Connected (Dense) Layer",
-        "distractors": ["Convolutional Layer", "Pooling Layer", "Recurrent Layer"],
-    },
-    {
-        "question": "Which technique randomly drops neurons during training to reduce overfitting?",
-        "answer": "Dropout",
-        "distractors": ["Batch Normalisation", "L2 Regularisation", "Early Stopping"],
-    },
-    {
-        "question": "What is the name of the process of adjusting model weights using the chain rule of calculus?",
-        "answer": "Backpropagation",
-        "distractors": ["Forward Pass", "Gradient Clipping", "Weight Initialisation"],
-    },
-    {
-        "question": "Which unsupervised learning algorithm groups data points into k clusters?",
-        "answer": "K-Means Clustering",
-        "distractors": ["DBSCAN", "Principal Component Analysis", "Linear Discriminant Analysis"],
-    },
-    {
-        "question": "Which algorithm builds an ensemble of decision trees using random feature subsets?",
-        "answer": "Random Forest",
-        "distractors": ["AdaBoost", "Support Vector Machine", "Naive Bayes"],
-    },
-    {
-        "question": "What term describes the error caused by overly simple assumptions in a learning algorithm?",
-        "answer": "Bias",
-        "distractors": ["Variance", "Entropy", "Regularisation"],
-    },
-    {
-        "question": "Which activation function outputs values strictly between 0 and 1, used in binary classification output layers?",
-        "answer": "Sigmoid",
-        "distractors": ["ReLU", "Tanh", "Softmax"],
-    },
-    {
-        "question": "What is the name of the optimisation algorithm that adapts learning rates for each parameter individually?",
-        "answer": "Adam",
-        "distractors": ["SGD", "RMSProp", "Adagrad"],
-    },
-    {
-        "question": "Which dimensionality reduction technique projects data onto directions of maximum variance?",
-        "answer": "Principal Component Analysis (PCA)",
-        "distractors": ["t-SNE", "UMAP", "Linear Discriminant Analysis"],
-    },
-    {
-        "question": "What is the purpose of a confusion matrix in classification tasks?",
-        "answer": "To show the counts of true/false positives and negatives",
-        "distractors": [
-            "To measure the distance between class centroids",
-            "To visualise feature correlations",
-            "To plot the learning curve",
-        ],
-    },
-    {
-        "question": "Which loss function is standard for multi-class classification with softmax output?",
-        "answer": "Categorical Cross-Entropy",
-        "distractors": ["Mean Squared Error", "Hinge Loss", "Huber Loss"],
-    },
-    {
-        "question": "What does the ROC curve plot?",
-        "answer": "True Positive Rate vs False Positive Rate",
-        "distractors": [
-            "Precision vs Recall",
-            "Loss vs Epochs",
-            "Accuracy vs Model Complexity",
-        ],
-    },
-    {
-        "question": "Which technique scales each feature to have zero mean and unit variance?",
-        "answer": "Standardisation (Z-score normalisation)",
-        "distractors": ["Min-Max Scaling", "Log Transformation", "One-Hot Encoding"],
-    },
-]
+"""
+neurix/playground/data.py
+Constants for the playground feature.
+Questions are no longer hardcoded — they are AI-generated per match
+based on the common modules both players have completed.
+"""
 
 TOTAL_ROUNDS     = 10
 POINTS_PER_ROUND = 1
 DISCONNECT_BONUS = 3
-LABELS = ["A", "B", "C", "D"]
+ROUND_TIMEOUT    = 30      # seconds before a round is declared no-winner
+LABELS           = ["A", "B", "C", "D"]
 
+# Module metadata used to build the AI prompt.
+# Maps module_id → human-readable title and topic description.
+MODULE_TOPICS = {
+    "b01_what_is_ml": {
+        "title": "What is Machine Learning?",
+        "description": "supervised vs unsupervised vs reinforcement learning, traditional programming vs ML, how models learn from data",
+    },
+    "b02_python_numpy": {
+        "title": "Python & NumPy Basics",
+        "description": "NumPy ndarray, vectorised operations, broadcasting, array shape and dtype, boolean indexing, linspace, arange",
+    },
+    "b03_linear_regression": {
+        "title": "Linear Regression",
+        "description": "linear regression equation, weights and bias, Mean Squared Error, fitting a line to data, scikit-learn LinearRegression",
+    },
+    "b04_data_preprocessing": {
+        "title": "Data Preprocessing",
+        "description": "handling missing values, StandardScaler, train/test split, one-hot encoding, label encoding, data leakage",
+    },
+    "i01_logistic_regression": {
+        "title": "Logistic Regression",
+        "description": "sigmoid function, binary classification, decision boundary, binary cross-entropy loss, probability output",
+    },
+    "i02_decision_trees": {
+        "title": "Decision Trees & Random Forests",
+        "description": "Gini impurity, information gain, bagging, random feature subsets, max_depth, n_estimators, overfitting in trees",
+    },
+    "i03_neural_networks": {
+        "title": "Neural Networks",
+        "description": "feedforward networks, hidden layers, activation functions (ReLU, sigmoid, softmax, tanh), backpropagation, loss functions",
+    },
+    "i04_sql_for_ml": {
+        "title": "SQL for ML Data Pipelines",
+        "description": "SELECT, WHERE, GROUP BY, HAVING, JOIN, window functions, aggregation for ML feature engineering",
+    },
+    "a01_cnn": {
+        "title": "Convolutional Neural Networks",
+        "description": "Conv2D, MaxPooling, Flatten, Dropout, receptive field, spatial locality, parameter sharing, feature maps",
+    },
+    "a02_transformers": {
+        "title": "Transformers & Attention",
+        "description": "self-attention, Query/Key/Value, multi-head attention, positional encoding, scaled dot-product attention, why transformers beat RNNs",
+    },
+    "a03_js_data_viz": {
+        "title": "Data Visualisation with JavaScript",
+        "description": "Canvas API, decision boundary visualisation, scatter plots, understanding model output visually",
+    },
+}
