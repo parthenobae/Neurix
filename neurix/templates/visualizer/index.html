@@ -1,0 +1,1194 @@
+
+{% extends "layout.html" %}
+{% block content_col_class %}col-md-10{% endblock %}
+{% block sidebar %}{% endblock %}
+
+{% block content %}
+<style>
+/* ══════════════════════════════════════════════════════
+   VISUALIZER — layout
+   ══════════════════════════════════════════════════════ */
+.viz-wrap { max-width: 960px; margin: 0 auto; }
+
+.viz-hero { margin-bottom: 1.5rem; }
+.viz-hero h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 2rem; color: var(--text); margin-bottom: .3rem;
+}
+.viz-hero p { color: var(--text-muted); font-size: .92rem; }
+
+/* Tab bar */
+.viz-tabs {
+  display: flex; gap: .4rem; flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+}
+.viz-tab {
+  padding: .55rem 1.1rem; border-radius: 8px 8px 0 0;
+  font-size: .86rem; font-weight: 600; cursor: pointer;
+  border: 1.5px solid transparent;
+  border-bottom: none;
+  color: var(--text-muted);
+  background: transparent;
+  transition: color .15s, background .15s;
+  margin-bottom: -2px;
+}
+.viz-tab:hover { color: var(--text); }
+.viz-tab.active {
+  color: var(--text);
+  background: var(--bg-card);
+  border-color: var(--border);
+  border-bottom-color: var(--bg-card);
+}
+
+/* Panel card */
+.viz-panel { display: none; }
+.viz-panel.active { display: block; }
+
+.viz-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: 0 14px 14px 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(26,37,53,.05);
+}
+.viz-card-header {
+  background: #1a2535;
+  padding: .9rem 1.4rem;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: .6rem;
+}
+[data-theme="dark"] .viz-card-header { background: #0d1117; border-bottom: 1px solid var(--border); }
+.viz-card-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.05rem; color: #fff; margin: 0;
+}
+.viz-card-sub { font-size: .75rem; color: #7a8799; margin: 0; }
+
+.viz-body {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 0;
+}
+@media(max-width: 700px) {
+  .viz-body { grid-template-columns: 1fr; }
+}
+
+/* Canvas area */
+.viz-canvas-wrap {
+  padding: 1.2rem;
+  border-right: 1px solid var(--border);
+  position: relative;
+}
+@media(max-width:700px) { .viz-canvas-wrap { border-right: none; border-bottom: 1px solid var(--border); } }
+canvas.viz-canvas {
+  width: 100%; height: 340px;
+  border-radius: 8px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-soft);
+  display: block;
+  cursor: crosshair;
+}
+
+/* Controls panel */
+.viz-controls {
+  padding: 1.1rem 1.1rem;
+  display: flex; flex-direction: column; gap: .9rem;
+}
+.ctrl-group { display: flex; flex-direction: column; gap: .3rem; }
+.ctrl-label {
+  font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.ctrl-row { display: flex; align-items: center; gap: .6rem; }
+.ctrl-val {
+  font-size: .8rem; font-weight: 600; color: var(--text);
+  min-width: 38px; text-align: right;
+  font-family: 'Courier New', monospace;
+}
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; height: 5px; border-radius: 3px;
+  background: var(--border); outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #1a2535; cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+[data-theme="dark"] input[type="range"]::-webkit-slider-thumb { background: #e8e6e1; border-color: #1a1a1a; }
+
+/* Buttons */
+.btn-viz {
+  padding: .42rem 1rem; border-radius: 7px;
+  font-size: .82rem; font-weight: 600; cursor: pointer;
+  border: none; transition: opacity .15s, transform .1s;
+  font-family: 'DM Sans', sans-serif;
+}
+.btn-viz:hover  { opacity: .85; transform: translateY(-1px); }
+.btn-viz:active { transform: translateY(0); }
+.btn-viz:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.btn-primary-v { background: #1a2535; color: #fff; }
+.btn-danger-v  { background: #c0392b; color: #fff; }
+.btn-green-v   { background: #27a35a; color: #fff; }
+.btn-outline-v {
+  background: var(--bg-sidebar); color: var(--text);
+  border: 1.5px solid var(--border) !important;
+}
+[data-theme="dark"] .btn-primary-v { background: #e8e6e1; color: #0d1117; }
+
+.btn-row { display: flex; gap: .45rem; flex-wrap: wrap; }
+
+/* Info box */
+.viz-info {
+  padding: .65rem .9rem; border-radius: 8px;
+  background: var(--bg-sidebar); border: 1px solid var(--border-soft);
+  font-size: .78rem; color: var(--text-muted); line-height: 1.55;
+}
+.viz-info strong { color: var(--text); }
+
+/* Step display */
+.step-display {
+  font-family: 'Courier New', monospace;
+  font-size: .76rem; color: #27a35a;
+  background: #0d1117; border-radius: 7px;
+  padding: .55rem .8rem; min-height: 3.5rem;
+  border: 1px solid #1e3a2a;
+  overflow-y: auto; max-height: 90px;
+  white-space: pre-wrap;
+}
+[data-theme="dark"] .step-display { background: #0a0f0a; }
+
+/* Legend dot */
+.legend { display: flex; flex-direction: column; gap: .3rem; margin-top: .2rem; }
+.legend-row { display: flex; align-items: center; gap: .5rem; font-size: .76rem; color: var(--text-muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* Speed badge */
+.speed-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .2rem .6rem; border-radius: 20px;
+  font-size: .7rem; font-weight: 700;
+  background: var(--bg-sidebar); border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+</style>
+
+<div class="viz-wrap">
+
+  <div class="viz-hero">
+    <h1>🔬 Algorithm Visualizer</h1>
+    <p>See ML algorithms in action. Adjust parameters with sliders and watch the math happen in real time.</p>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="viz-tabs">
+    <button class="viz-tab active" onclick="switchTab('gd')">📉 Gradient Descent</button>
+    <button class="viz-tab" onclick="switchTab('dt')">🌳 Decision Tree</button>
+    <button class="viz-tab" onclick="switchTab('knn')">🔵 K-Nearest Neighbors</button>
+    <button class="viz-tab" onclick="switchTab('kmeans')">⭕ K-Means Clustering</button>
+    <button class="viz-tab" onclick="switchTab('lr')">📈 Linear Regression</button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       1. GRADIENT DESCENT
+       ═══════════════════════════════════════════════════════ -->
+  <div class="viz-panel active" id="panel-gd">
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <div>
+          <p class="viz-card-title">Gradient Descent</p>
+          <p class="viz-card-sub">Watch a ball roll down a cost function as it searches for the minimum</p>
+        </div>
+      </div>
+      <div class="viz-body">
+        <div class="viz-canvas-wrap">
+          <canvas class="viz-canvas" id="canvas-gd"></canvas>
+        </div>
+        <div class="viz-controls">
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Learning Rate (α)</span>
+            <div class="ctrl-row">
+              <input type="range" id="gd-lr" min="0.001" max="0.5" step="0.001" value="0.05"
+                     oninput="gdUpdate()">
+              <span class="ctrl-val" id="gd-lr-val">0.05</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Starting Point</span>
+            <div class="ctrl-row">
+              <input type="range" id="gd-start" min="-4" max="4" step="0.1" value="3.5"
+                     oninput="gdUpdate()">
+              <span class="ctrl-val" id="gd-start-val">3.5</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Function Shape</span>
+            <div class="ctrl-row">
+              <select id="gd-fn" onchange="gdReset()"
+                      style="flex:1;padding:.35rem .6rem;border-radius:7px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text);font-size:.82rem;">
+                <option value="simple">Simple (x²)</option>
+                <option value="bumpy">Bumpy (local minima)</option>
+                <option value="asymm">Asymmetric</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-viz btn-primary-v" onclick="gdRun()" id="btn-gd-run">▶ Run</button>
+            <button class="btn-viz btn-outline-v" onclick="gdStep()" id="btn-gd-step">Step</button>
+            <button class="btn-viz btn-danger-v"  onclick="gdReset()">Reset</button>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Log</span>
+            <div class="step-display" id="gd-log">Ready. Press Run or Step.</div>
+          </div>
+
+          <div class="viz-info">
+            <strong>Tip:</strong> Try a high α (e.g. 0.45) to see the ball <em>overshoot</em> and oscillate.
+            Try α = 0.001 to see slow convergence.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       2. DECISION TREE
+       ═══════════════════════════════════════════════════════ -->
+  <div class="viz-panel" id="panel-dt">
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <div>
+          <p class="viz-card-title">Decision Tree Splits</p>
+          <p class="viz-card-sub">Click canvas to add points, then watch the tree partition the space</p>
+        </div>
+      </div>
+      <div class="viz-body">
+        <div class="viz-canvas-wrap">
+          <canvas class="viz-canvas" id="canvas-dt"></canvas>
+        </div>
+        <div class="viz-controls">
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Max Depth</span>
+            <div class="ctrl-row">
+              <input type="range" id="dt-depth" min="1" max="6" step="1" value="3"
+                     oninput="dtDraw()">
+              <span class="ctrl-val" id="dt-depth-val">3</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Min Samples to Split</span>
+            <div class="ctrl-row">
+              <input type="range" id="dt-min" min="1" max="10" step="1" value="2"
+                     oninput="dtDraw()">
+              <span class="ctrl-val" id="dt-min-val">2</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Adding class</span>
+            <div class="btn-row">
+              <button class="btn-viz btn-primary-v" id="btn-dt-cls0"
+                      onclick="dtSetClass(0)" style="flex:1;">🔵 Class 0</button>
+              <button class="btn-viz btn-outline-v" id="btn-dt-cls1"
+                      onclick="dtSetClass(1)" style="flex:1;">🔴 Class 1</button>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-viz btn-green-v"  onclick="dtGenRandom()">Random Data</button>
+            <button class="btn-viz btn-danger-v" onclick="dtClear()">Clear</button>
+          </div>
+
+          <div class="legend">
+            <div class="legend-row"><div class="legend-dot" style="background:#3a70d4"></div> Class 0</div>
+            <div class="legend-row"><div class="legend-dot" style="background:#c0392b"></div> Class 1</div>
+          </div>
+
+          <div class="viz-info">
+            <strong>How it works:</strong> The tree finds the best axis-aligned split at each node using Gini impurity. Deeper trees = finer boundaries.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       3. KNN
+       ═══════════════════════════════════════════════════════ -->
+  <div class="viz-panel" id="panel-knn">
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <div>
+          <p class="viz-card-title">K-Nearest Neighbors</p>
+          <p class="viz-card-sub">Click to add training points, then hover to see live classification</p>
+        </div>
+      </div>
+      <div class="viz-body">
+        <div class="viz-canvas-wrap">
+          <canvas class="viz-canvas" id="canvas-knn"></canvas>
+        </div>
+        <div class="viz-controls">
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">K (neighbours)</span>
+            <div class="ctrl-row">
+              <input type="range" id="knn-k" min="1" max="15" step="2" value="3"
+                     oninput="knnDraw()">
+              <span class="ctrl-val" id="knn-k-val">3</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Distance Metric</span>
+            <div class="ctrl-row">
+              <select id="knn-dist" onchange="knnDraw()"
+                      style="flex:1;padding:.35rem .6rem;border-radius:7px;border:1.5px solid var(--border);background:var(--bg-card);color:var(--text);font-size:.82rem;">
+                <option value="euclidean">Euclidean</option>
+                <option value="manhattan">Manhattan</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Adding class</span>
+            <div class="btn-row">
+              <button class="btn-viz btn-primary-v" id="btn-knn-cls0"
+                      onclick="knnSetClass(0)" style="flex:1;">🔵 Class 0</button>
+              <button class="btn-viz btn-outline-v" id="btn-knn-cls1"
+                      onclick="knnSetClass(1)" style="flex:1;">🔴 Class 1</button>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-viz btn-green-v"  onclick="knnGenRandom()">Random Data</button>
+            <button class="btn-viz btn-danger-v" onclick="knnClear()">Clear</button>
+          </div>
+
+          <div class="viz-info">
+            <strong>Tip:</strong> Hover over the canvas after adding points. The background shading shows the <em>decision boundary</em> — how the algorithm would classify any new point.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       4. K-MEANS
+       ═══════════════════════════════════════════════════════ -->
+  <div class="viz-panel" id="panel-kmeans">
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <div>
+          <p class="viz-card-title">K-Means Clustering</p>
+          <p class="viz-card-sub">Watch centroids move and clusters reform with each iteration</p>
+        </div>
+      </div>
+      <div class="viz-body">
+        <div class="viz-canvas-wrap">
+          <canvas class="viz-canvas" id="canvas-kmeans"></canvas>
+        </div>
+        <div class="viz-controls">
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">K (clusters)</span>
+            <div class="ctrl-row">
+              <input type="range" id="km-k" min="2" max="6" step="1" value="3"
+                     oninput="kmReset()">
+              <span class="ctrl-val" id="km-k-val">3</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Data Points</span>
+            <div class="ctrl-row">
+              <input type="range" id="km-n" min="20" max="150" step="10" value="60"
+                     oninput="kmReset()">
+              <span class="ctrl-val" id="km-n-val">60</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Speed</span>
+            <div class="ctrl-row">
+              <input type="range" id="km-speed" min="100" max="1000" step="100" value="500"
+                     oninput="document.getElementById('km-speed-val').textContent=this.value+'ms'">
+              <span class="ctrl-val" id="km-speed-val">500ms</span>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-viz btn-primary-v" onclick="kmStep()" id="btn-km-step">Step</button>
+            <button class="btn-viz btn-green-v"   onclick="kmRun()"  id="btn-km-run">▶ Auto</button>
+            <button class="btn-viz btn-danger-v"  onclick="kmReset()">Reset</button>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Iteration</span>
+            <div class="step-display" id="km-log">Press Step or Auto to start.</div>
+          </div>
+
+          <div class="viz-info">
+            <strong>Watch:</strong> Centroids (★) move to the mean of their cluster each step. Algorithm converges when centroids stop moving.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       5. LINEAR REGRESSION
+       ═══════════════════════════════════════════════════════ -->
+  <div class="viz-panel" id="panel-lr">
+    <div class="viz-card">
+      <div class="viz-card-header">
+        <div>
+          <p class="viz-card-title">Linear Regression</p>
+          <p class="viz-card-sub">Click to add data points and watch the regression line fit in real time</p>
+        </div>
+      </div>
+      <div class="viz-body">
+        <div class="viz-canvas-wrap">
+          <canvas class="viz-canvas" id="canvas-lr"></canvas>
+        </div>
+        <div class="viz-controls">
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Noise Level</span>
+            <div class="ctrl-row">
+              <input type="range" id="lr-noise" min="0" max="80" step="5" value="20"
+                     oninput="lrGenRandom()">
+              <span class="ctrl-val" id="lr-noise-val">20</span>
+            </div>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Regularization (Ridge)</span>
+            <div class="ctrl-row">
+              <input type="range" id="lr-reg" min="0" max="5" step="0.1" value="0"
+                     oninput="lrDraw()">
+              <span class="ctrl-val" id="lr-reg-val">0</span>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn-viz btn-green-v"  onclick="lrGenRandom()">Generate Data</button>
+            <button class="btn-viz btn-danger-v" onclick="lrClear()">Clear</button>
+          </div>
+
+          <div class="ctrl-group">
+            <span class="ctrl-label">Fit Statistics</span>
+            <div class="step-display" id="lr-stats">Add points to see stats.</div>
+          </div>
+
+          <div class="viz-info">
+            <strong>Click</strong> on the canvas to add data points manually, or use <em>Generate Data</em>.
+            Adjust <strong>Noise</strong> to see how scatter affects the fit.
+            Ridge regularization shrinks the slope toward zero.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /viz-wrap -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   UTILITIES
+   ══════════════════════════════════════════════════════════════════════════ */
+function resizeCanvas(canvas) {
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+}
+
+const COLORS = ['#3a70d4','#c0392b','#27a35a','#e6952a','#8e44ad','#16a2b8'];
+const LIGHT   = ['rgba(58,112,212,.15)','rgba(192,57,43,.15)','rgba(39,163,90,.15)',
+                  'rgba(230,149,42,.15)','rgba(142,68,173,.15)','rgba(22,162,184,.15)'];
+
+function isDark() {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+function textColor()   { return isDark() ? '#c9c5be' : '#1c1c1e'; }
+function gridColor()   { return isDark() ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'; }
+function bgColor()     { return isDark() ? '#161b22' : '#f7f5f0'; }
+function borderColor() { return isDark() ? '#30363d' : '#e2ddd6'; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TAB SWITCHING
+   ══════════════════════════════════════════════════════════════════════════ */
+function switchTab(id) {
+  document.querySelectorAll('.viz-tab').forEach((t,i) => {
+    const ids = ['gd','dt','knn','kmeans','lr'];
+    t.classList.toggle('active', ids[i] === id);
+  });
+  document.querySelectorAll('.viz-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  // re-init canvas sizes
+  setTimeout(() => {
+    if (id==='gd')     { gdReset(); }
+    if (id==='dt')     { dtInit(); }
+    if (id==='knn')    { knnInit(); }
+    if (id==='kmeans') { kmInit(); }
+    if (id==='lr')     { lrInit(); }
+  }, 30);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. GRADIENT DESCENT
+   ══════════════════════════════════════════════════════════════════════════ */
+let gdAnimId = null, gdX = 3.5, gdRunning = false, gdIteration = 0;
+
+function gdFn(x, type) {
+  if (type === 'simple')  return x * x;
+  if (type === 'bumpy')   return Math.sin(2*x)*1.5 + 0.3*x*x;
+  if (type === 'asymm')   return 0.5*x*x - Math.sin(x*2)*0.8 + 0.1*x*x*x;
+  return x*x;
+}
+function gdGrad(x, type) {
+  const h = 0.0001;
+  return (gdFn(x+h, type) - gdFn(x-h, type)) / (2*h);
+}
+
+function gdDraw(highlightX) {
+  const c  = document.getElementById('canvas-gd');
+  resizeCanvas(c);
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const type = document.getElementById('gd-fn').value;
+
+  ctx.fillStyle = bgColor(); ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle = gridColor(); ctx.lineWidth = 1;
+  for (let i=0;i<W;i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke(); }
+  for (let i=0;i<H;i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(W,i); ctx.stroke(); }
+
+  // Map x in [-5,5] → canvas, y in [-1, 25] → canvas
+  const xMin=-5, xMax=5, yMin=-2, yMax=20;
+  const toCanX = x => (x-xMin)/(xMax-xMin) * W;
+  const toCanY = y => H - (y-yMin)/(yMax-yMin) * H;
+
+  // Axes
+  ctx.strokeStyle = borderColor(); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, toCanY(0)); ctx.lineTo(W, toCanY(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(toCanX(0), 0); ctx.lineTo(toCanX(0), H); ctx.stroke();
+
+  // Curve
+  ctx.strokeStyle = '#3a70d4'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let px=0; px<=W; px++) {
+    const x = xMin + (px/W)*(xMax-xMin);
+    const y = gdFn(x, type);
+    const py = toCanY(y);
+    px===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+
+  // Ball
+  const bx = toCanX(highlightX);
+  const by = toCanY(gdFn(highlightX, type));
+  ctx.beginPath(); ctx.arc(bx, by, 9, 0, Math.PI*2);
+  ctx.fillStyle = '#b84c27'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Tangent line
+  const grad = gdGrad(highlightX, type);
+  const tx1 = highlightX - 1, tx2 = highlightX + 1;
+  ctx.strokeStyle = 'rgba(184,76,39,.4)'; ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(toCanX(tx1), toCanY(gdFn(highlightX,type) + grad*(tx1-highlightX)));
+  ctx.lineTo(toCanX(tx2), toCanY(gdFn(highlightX,type) + grad*(tx2-highlightX)));
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Label
+  ctx.fillStyle = textColor(); ctx.font = '11px DM Sans, sans-serif';
+  ctx.fillText(`x = ${highlightX.toFixed(3)}   f(x) = ${gdFn(highlightX,type).toFixed(3)}`, 10, 18);
+}
+
+function gdUpdate() {
+  document.getElementById('gd-lr-val').textContent    = parseFloat(document.getElementById('gd-lr').value).toFixed(3);
+  document.getElementById('gd-start-val').textContent = parseFloat(document.getElementById('gd-start').value).toFixed(1);
+  gdDraw(gdX);
+}
+
+function gdStep() {
+  const lr   = parseFloat(document.getElementById('gd-lr').value);
+  const type = document.getElementById('gd-fn').value;
+  const grad = gdGrad(gdX, type);
+  gdX = gdX - lr * grad;
+  gdIteration++;
+  gdDraw(gdX);
+  const log = document.getElementById('gd-log');
+  log.textContent += `\nIter ${gdIteration}: x=${gdX.toFixed(4)}, grad=${grad.toFixed(4)}`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function gdRun() {
+  if (gdRunning) {
+    gdRunning = false;
+    cancelAnimationFrame(gdAnimId);
+    document.getElementById('btn-gd-run').textContent = '▶ Run';
+    return;
+  }
+  gdRunning = true;
+  document.getElementById('btn-gd-run').textContent = '⏸ Pause';
+  const speed = 80;
+  let last = 0;
+  function loop(ts) {
+    if (ts - last > speed) { gdStep(); last = ts; }
+    const grad = Math.abs(gdGrad(gdX, document.getElementById('gd-fn').value));
+    if (grad < 0.0001 || gdIteration > 500) {
+      gdRunning = false;
+      document.getElementById('btn-gd-run').textContent = '▶ Run';
+      return;
+    }
+    if (gdRunning) gdAnimId = requestAnimationFrame(loop);
+  }
+  gdAnimId = requestAnimationFrame(loop);
+}
+
+function gdReset() {
+  cancelAnimationFrame(gdAnimId);
+  gdRunning = false; gdIteration = 0;
+  gdX = parseFloat(document.getElementById('gd-start').value);
+  document.getElementById('btn-gd-run').textContent = '▶ Run';
+  document.getElementById('gd-log').textContent = 'Ready. Press Run or Step.';
+  gdDraw(gdX);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. DECISION TREE
+   ══════════════════════════════════════════════════════════════════════════ */
+let dtPoints = [], dtCurrentClass = 0;
+
+function dtSetClass(c) {
+  dtCurrentClass = c;
+  document.getElementById('btn-dt-cls0').className = `btn-viz ${c===0?'btn-primary-v':'btn-outline-v'}`;
+  document.getElementById('btn-dt-cls1').className = `btn-viz ${c===1?'btn-primary-v':'btn-outline-v'}`;
+}
+
+function gini(labels) {
+  if (!labels.length) return 0;
+  const c0 = labels.filter(l=>l===0).length / labels.length;
+  const c1 = 1 - c0;
+  return 1 - c0*c0 - c1*c1;
+}
+
+function bestSplit(pts, depth, maxDepth, minSamples) {
+  if (!pts.length || depth >= maxDepth || pts.length < minSamples) return null;
+  const labels = pts.map(p=>p.c);
+  if (new Set(labels).size === 1) return null;
+
+  let bestG = Infinity, bestAxis = 0, bestVal = 0;
+  const parentG = gini(labels);
+
+  for (const axis of [0,1]) {
+    const vals = [...new Set(pts.map(p=>axis===0?p.x:p.y))].sort((a,b)=>a-b);
+    for (let i=0;i<vals.length-1;i++) {
+      const v = (vals[i]+vals[i+1])/2;
+      const left  = pts.filter(p=>(axis===0?p.x:p.y) <= v);
+      const right = pts.filter(p=>(axis===0?p.x:p.y) >  v);
+      if (!left.length||!right.length) continue;
+      const g = (left.length*gini(left.map(p=>p.c)) + right.length*gini(right.map(p=>p.c))) / pts.length;
+      if (g < bestG) { bestG=g; bestAxis=axis; bestVal=v; }
+    }
+  }
+  if (bestG >= parentG) return null;
+  return { axis: bestAxis, val: bestVal };
+}
+
+function dtBuildLines(pts, depth, maxDepth, minSamples, bounds, lines) {
+  const split = bestSplit(pts, depth, maxDepth, minSamples);
+  if (!split) return;
+  lines.push({ ...split, bounds: { ...bounds } });
+  const left  = pts.filter(p=>(split.axis===0?p.x:p.y) <= split.val);
+  const right = pts.filter(p=>(split.axis===0?p.x:p.y) >  split.val);
+  const bL = { ...bounds }, bR = { ...bounds };
+  if (split.axis===0) { bL.xMax=split.val; bR.xMin=split.val; }
+  else                { bL.yMax=split.val; bR.yMin=split.val; }
+  dtBuildLines(left,  depth+1, maxDepth, minSamples, bL, lines);
+  dtBuildLines(right, depth+1, maxDepth, minSamples, bR, lines);
+}
+
+function dtDraw() {
+  document.getElementById('dt-depth-val').textContent = document.getElementById('dt-depth').value;
+  document.getElementById('dt-min-val').textContent   = document.getElementById('dt-min').value;
+
+  const c = document.getElementById('canvas-dt');
+  resizeCanvas(c);
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+
+  ctx.fillStyle = bgColor(); ctx.fillRect(0,0,W,H);
+
+  const tx = x => x * W, ty = y => y * H;
+
+  const maxDepth  = parseInt(document.getElementById('dt-depth').value);
+  const minSamples = parseInt(document.getElementById('dt-min').value);
+
+  if (dtPoints.length >= 2) {
+    const lines = [];
+    dtBuildLines(dtPoints, 0, maxDepth, minSamples,
+      {xMin:0,xMax:1,yMin:0,yMax:1}, lines);
+
+    // Draw regions
+    lines.forEach(l => {
+      const {axis, val, bounds} = l;
+      if (axis===0) {
+        ctx.fillStyle = 'rgba(58,112,212,.06)';
+        ctx.fillRect(tx(bounds.xMin), ty(bounds.yMin), tx(val-bounds.xMin), ty(bounds.yMax-bounds.yMin));
+        ctx.fillStyle = 'rgba(192,57,43,.06)';
+        ctx.fillRect(tx(val), ty(bounds.yMin), tx(bounds.xMax-val), ty(bounds.yMax-bounds.yMin));
+      }
+    });
+
+    // Draw split lines
+    lines.forEach(l => {
+      const {axis, val, bounds} = l;
+      ctx.strokeStyle = '#b84c27'; ctx.lineWidth = 1.5; ctx.setLineDash([5,3]);
+      ctx.beginPath();
+      if (axis===0) {
+        ctx.moveTo(tx(val), ty(bounds.yMin)); ctx.lineTo(tx(val), ty(bounds.yMax));
+      } else {
+        ctx.moveTo(tx(bounds.xMin), ty(val)); ctx.lineTo(tx(bounds.xMax), ty(val));
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    });
+  }
+
+  // Grid
+  ctx.strokeStyle = gridColor(); ctx.lineWidth = 1;
+  for (let i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for (let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+
+  // Points
+  dtPoints.forEach(p => {
+    ctx.beginPath(); ctx.arc(tx(p.x), ty(p.y), 6, 0, Math.PI*2);
+    ctx.fillStyle = COLORS[p.c]; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
+
+  ctx.fillStyle = textColor(); ctx.font = '11px DM Sans';
+  ctx.fillText(`${dtPoints.length} points  |  depth ${maxDepth}  |  min_samples ${minSamples}`, 8, 16);
+}
+
+function dtInit() {
+  const c = document.getElementById('canvas-dt');
+  c.onclick = e => {
+    const r = c.getBoundingClientRect();
+    dtPoints.push({ x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height, c:dtCurrentClass });
+    dtDraw();
+  };
+  dtDraw();
+}
+
+function dtGenRandom() {
+  dtPoints = [];
+  for (let i=0;i<40;i++) {
+    const cls = Math.random() > .5 ? 1 : 0;
+    dtPoints.push({
+      x: cls===0 ? Math.random()*0.45+0.05 : Math.random()*0.45+0.5,
+      y: Math.random()*0.8+0.1, c: cls
+    });
+  }
+  dtDraw();
+}
+function dtClear() { dtPoints=[]; dtDraw(); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. KNN
+   ══════════════════════════════════════════════════════════════════════════ */
+let knnPoints = [], knnCurrentClass = 0, knnMouse = null;
+
+function knnSetClass(c) {
+  knnCurrentClass = c;
+  document.getElementById('btn-knn-cls0').className = `btn-viz ${c===0?'btn-primary-v':'btn-outline-v'}`;
+  document.getElementById('btn-knn-cls1').className = `btn-viz ${c===1?'btn-primary-v':'btn-outline-v'}`;
+}
+
+function knnDist(a, b, metric) {
+  if (metric === 'manhattan') return Math.abs(a.x-b.x) + Math.abs(a.y-b.y);
+  return Math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2);
+}
+
+function knnClassify(pt, k, metric) {
+  if (!knnPoints.length) return -1;
+  const sorted = [...knnPoints].sort((a,b)=>knnDist(pt,a,metric)-knnDist(pt,b,metric));
+  const nbrs = sorted.slice(0, k);
+  const votes = [0,0];
+  nbrs.forEach(n => votes[n.c]++);
+  return votes[0] > votes[1] ? 0 : 1;
+}
+
+function knnDraw() {
+  document.getElementById('knn-k-val').textContent = document.getElementById('knn-k').value;
+  const c = document.getElementById('canvas-knn');
+  resizeCanvas(c);
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const k = parseInt(document.getElementById('knn-k').value);
+  const metric = document.getElementById('knn-dist').value;
+
+  ctx.fillStyle = bgColor(); ctx.fillRect(0,0,W,H);
+
+  // Decision boundary via pixel sampling (every 8px for perf)
+  if (knnPoints.length >= 2) {
+    const step = 8;
+    for (let px=0;px<W;px+=step) {
+      for (let py=0;py<H;py+=step) {
+        const cls = knnClassify({x:px/W,y:py/H}, k, metric);
+        ctx.fillStyle = LIGHT[cls];
+        ctx.fillRect(px,py,step,step);
+      }
+    }
+  }
+
+  // Grid
+  ctx.strokeStyle = gridColor(); ctx.lineWidth = 1;
+  for (let i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for (let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+
+  // Hover rings
+  if (knnMouse && knnPoints.length >= k) {
+    const sorted = [...knnPoints].sort((a,b)=>
+      knnDist(knnMouse,a,metric)-knnDist(knnMouse,b,metric)).slice(0,k);
+    sorted.forEach(n => {
+      ctx.beginPath();
+      ctx.moveTo(knnMouse.x*W, knnMouse.y*H);
+      ctx.lineTo(n.x*W, n.y*H);
+      ctx.strokeStyle = 'rgba(128,128,128,.35)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+      ctx.stroke(); ctx.setLineDash([]);
+    });
+    const knnDist2 = sorted.map(n=>knnDist(knnMouse,n,metric));
+    const maxR = Math.max(...knnDist2) * Math.min(W,H);
+    ctx.beginPath(); ctx.arc(knnMouse.x*W, knnMouse.y*H, maxR, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(100,100,100,.3)'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+    ctx.stroke(); ctx.setLineDash([]);
+
+    // Cursor dot
+    const cls = knnClassify(knnMouse, k, metric);
+    ctx.beginPath(); ctx.arc(knnMouse.x*W, knnMouse.y*H, 7, 0, Math.PI*2);
+    ctx.fillStyle = COLORS[cls]+'99'; ctx.fill();
+    ctx.strokeStyle=COLORS[cls]; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  // Points
+  knnPoints.forEach(p => {
+    ctx.beginPath(); ctx.arc(p.x*W, p.y*H, 6, 0, Math.PI*2);
+    ctx.fillStyle=COLORS[p.c]; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+  });
+
+  ctx.fillStyle=textColor(); ctx.font='11px DM Sans';
+  ctx.fillText(`k=${k}  metric=${metric}  points=${knnPoints.length}`, 8, 16);
+}
+
+function knnInit() {
+  const c = document.getElementById('canvas-knn');
+  c.onclick = e => {
+    const r = c.getBoundingClientRect();
+    knnPoints.push({x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height, c:knnCurrentClass});
+    knnDraw();
+  };
+  c.onmousemove = e => {
+    const r = c.getBoundingClientRect();
+    knnMouse = {x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height};
+    knnDraw();
+  };
+  c.onmouseleave = () => { knnMouse=null; knnDraw(); };
+  knnDraw();
+}
+
+function knnGenRandom() {
+  knnPoints=[];
+  [[.25,.35],[.7,.65]].forEach((center,cls) => {
+    for(let i=0;i<25;i++) knnPoints.push({
+      x: Math.min(.95,Math.max(.05,center[0]+(Math.random()-.5)*.3)),
+      y: Math.min(.95,Math.max(.05,center[1]+(Math.random()-.5)*.3)),
+      c: cls
+    });
+  });
+  knnDraw();
+}
+function knnClear() { knnPoints=[]; knnMouse=null; knnDraw(); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. K-MEANS
+   ══════════════════════════════════════════════════════════════════════════ */
+let kmData=[], kmCentroids=[], kmAssign=[], kmIter=0, kmAutoId=null;
+
+function kmInit() {
+  document.getElementById('km-k-val').textContent = document.getElementById('km-k').value;
+  document.getElementById('km-n-val').textContent = document.getElementById('km-n').value;
+  kmReset();
+}
+
+function kmReset() {
+  clearInterval(kmAutoId); kmAutoId=null;
+  document.getElementById('btn-km-run').textContent='▶ Auto';
+  document.getElementById('km-k-val').textContent = document.getElementById('km-k').value;
+  document.getElementById('km-n-val').textContent = document.getElementById('km-n').value;
+
+  const n = parseInt(document.getElementById('km-n').value);
+  const k = parseInt(document.getElementById('km-k').value);
+  kmIter=0; kmData=[]; kmCentroids=[]; kmAssign=[];
+
+  // Generate clustered data
+  const centers = Array.from({length:k},()=>({x:Math.random()*.8+.1,y:Math.random()*.8+.1}));
+  for(let i=0;i<n;i++){
+    const c=centers[Math.floor(Math.random()*k)];
+    kmData.push({x:Math.min(.98,Math.max(.02,c.x+(Math.random()-.5)*.25)),
+                 y:Math.min(.98,Math.max(.02,c.y+(Math.random()-.5)*.25))});
+  }
+  // Random initial centroids
+  kmCentroids = Array.from({length:k},()=>({x:Math.random()*.8+.1,y:Math.random()*.8+.1}));
+  kmAssign = new Array(n).fill(0);
+  document.getElementById('km-log').textContent='Press Step or Auto to start.';
+  kmDraw();
+}
+
+function kmAssignStep() {
+  const k = parseInt(document.getElementById('km-k').value);
+  kmData.forEach((p,i)=>{
+    let best=0, bestD=Infinity;
+    kmCentroids.forEach((c,j)=>{
+      const d=Math.sqrt((p.x-c.x)**2+(p.y-c.y)**2);
+      if(d<bestD){bestD=d;best=j;}
+    });
+    kmAssign[i]=best;
+  });
+}
+
+function kmMoveStep() {
+  const k = parseInt(document.getElementById('km-k').value);
+  let moved = false;
+  for(let j=0;j<k;j++){
+    const pts=kmData.filter((_,i)=>kmAssign[i]===j);
+    if(!pts.length) continue;
+    const nx=pts.reduce((s,p)=>s+p.x,0)/pts.length;
+    const ny=pts.reduce((s,p)=>s+p.y,0)/pts.length;
+    if(Math.abs(nx-kmCentroids[j].x)>0.0001||Math.abs(ny-kmCentroids[j].y)>0.0001) moved=true;
+    kmCentroids[j]={x:nx,y:ny};
+  }
+  return moved;
+}
+
+function kmStep() {
+  kmAssignStep();
+  const moved = kmMoveStep();
+  kmIter++;
+  kmDraw();
+  const log = document.getElementById('km-log');
+  log.textContent = `Iter ${kmIter}: centroids ${moved?'moved':'converged ✓'}`;
+  if (!moved) {
+    clearInterval(kmAutoId); kmAutoId=null;
+    document.getElementById('btn-km-run').textContent='▶ Auto';
+  }
+}
+
+function kmRun() {
+  if (kmAutoId) {
+    clearInterval(kmAutoId); kmAutoId=null;
+    document.getElementById('btn-km-run').textContent='▶ Auto';
+    return;
+  }
+  document.getElementById('btn-km-run').textContent='⏸ Pause';
+  const speed = parseInt(document.getElementById('km-speed').value);
+  kmAutoId = setInterval(()=>{
+    kmAssignStep();
+    const moved=kmMoveStep();
+    kmIter++;
+    kmDraw();
+    document.getElementById('km-log').textContent=`Iter ${kmIter}: centroids ${moved?'moved':'converged ✓'}`;
+    if(!moved||kmIter>100){clearInterval(kmAutoId);kmAutoId=null;document.getElementById('btn-km-run').textContent='▶ Auto';}
+  }, speed);
+}
+
+function kmDraw() {
+  const c = document.getElementById('canvas-kmeans');
+  resizeCanvas(c);
+  const ctx=c.getContext('2d');
+  const W=c.width, H=c.height;
+  ctx.fillStyle=bgColor(); ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=gridColor(); ctx.lineWidth=1;
+  for(let i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for(let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+
+  // Voronoi shading (sampled)
+  if(kmCentroids.length){
+    const step=6;
+    for(let px=0;px<W;px+=step){
+      for(let py=0;py<H;py+=step){
+        let best=0,bestD=Infinity;
+        kmCentroids.forEach((c,j)=>{
+          const d=(px/W-c.x)**2+(py/H-c.y)**2;
+          if(d<bestD){bestD=d;best=j;}
+        });
+        ctx.fillStyle=LIGHT[best%LIGHT.length];
+        ctx.fillRect(px,py,step,step);
+      }
+    }
+  }
+
+  // Points
+  kmData.forEach((p,i)=>{
+    ctx.beginPath(); ctx.arc(p.x*W,p.y*H,4,0,Math.PI*2);
+    ctx.fillStyle=COLORS[kmAssign[i]%COLORS.length]; ctx.fill();
+  });
+
+  // Centroids
+  kmCentroids.forEach((c,j)=>{
+    ctx.font='bold 18px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle=COLORS[j%COLORS.length];
+    ctx.fillText('★',c.x*W,c.y*H);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1;
+    ctx.strokeText('★',c.x*W,c.y*H);
+  });
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=textColor(); ctx.font='11px DM Sans';
+  ctx.fillText(`Iter ${kmIter}  |  k=${document.getElementById('km-k').value}  |  n=${kmData.length}`,8,16);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. LINEAR REGRESSION
+   ══════════════════════════════════════════════════════════════════════════ */
+let lrPoints = [];
+
+function lrOLS(pts, lambda) {
+  if(pts.length < 2) return null;
+  const n=pts.length;
+  const mx=pts.reduce((s,p)=>s+p.x,0)/n;
+  const my=pts.reduce((s,p)=>s+p.y,0)/n;
+  const sxx=pts.reduce((s,p)=>s+(p.x-mx)**2,0);
+  const sxy=pts.reduce((s,p)=>s+(p.x-mx)*(p.y-my),0);
+  const slope = sxy / (sxx + lambda);
+  const intercept = my - slope*mx;
+  const yhat = pts.map(p=>slope*p.x+intercept);
+  const ss_res = pts.reduce((s,p,i)=>s+(p.y-yhat[i])**2,0);
+  const ss_tot = pts.reduce((s,p)=>s+(p.y-my)**2,0);
+  const r2 = ss_tot===0 ? 1 : 1-ss_res/ss_tot;
+  const rmse = Math.sqrt(ss_res/n);
+  return {slope, intercept, r2, rmse};
+}
+
+function lrDraw() {
+  document.getElementById('lr-noise-val').textContent = document.getElementById('lr-noise').value;
+  document.getElementById('lr-reg-val').textContent   = parseFloat(document.getElementById('lr-reg').value).toFixed(1);
+
+  const c = document.getElementById('canvas-lr');
+  resizeCanvas(c);
+  const ctx=c.getContext('2d');
+  const W=c.width, H=c.height;
+  const lambda = parseFloat(document.getElementById('lr-reg').value) * 100;
+
+  ctx.fillStyle=bgColor(); ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=gridColor(); ctx.lineWidth=1;
+  for(let i=0;i<W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke();}
+  for(let i=0;i<H;i+=40){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke();}
+
+  // Axes
+  ctx.strokeStyle=borderColor(); ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+
+  // Residuals
+  const fit = lrOLS(lrPoints, lambda);
+  if(fit){
+    lrPoints.forEach(p=>{
+      const px=p.x*W, py=(1-p.y)*H;
+      const fy=fit.slope*p.x+fit.intercept;
+      const fpy=(1-fy)*H;
+      ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px,fpy);
+      ctx.strokeStyle='rgba(184,76,39,.35)'; ctx.lineWidth=1; ctx.setLineDash([3,2]);
+      ctx.stroke(); ctx.setLineDash([]);
+    });
+
+    // Regression line
+    ctx.beginPath();
+    ctx.moveTo(0,(1-(fit.slope*0+fit.intercept))*H);
+    ctx.lineTo(W,(1-(fit.slope*1+fit.intercept))*H);
+    ctx.strokeStyle='#3a70d4'; ctx.lineWidth=2.5; ctx.stroke();
+
+    // Stats
+    document.getElementById('lr-stats').textContent =
+      `slope     = ${fit.slope.toFixed(3)}\nintercept = ${fit.intercept.toFixed(3)}\nR²        = ${fit.r2.toFixed(4)}\nRMSE      = ${fit.rmse.toFixed(3)}\nλ (ridge) = ${parseFloat(document.getElementById('lr-reg').value).toFixed(1)}`;
+  } else {
+    document.getElementById('lr-stats').textContent = 'Add at least 2 points to see stats.';
+  }
+
+  // Points
+  lrPoints.forEach(p=>{
+    ctx.beginPath(); ctx.arc(p.x*W,(1-p.y)*H,5,0,Math.PI*2);
+    ctx.fillStyle='#3a70d4'; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+  });
+
+  ctx.fillStyle=textColor(); ctx.font='11px DM Sans';
+  ctx.fillText(`${lrPoints.length} points`, 8, 16);
+}
+
+function lrInit() {
+  const c = document.getElementById('canvas-lr');
+  c.onclick = e => {
+    const r=c.getBoundingClientRect();
+    lrPoints.push({x:(e.clientX-r.left)/r.width, y:1-(e.clientY-r.top)/r.height});
+    lrDraw();
+  };
+  lrDraw();
+}
+
+function lrGenRandom() {
+  document.getElementById('lr-noise-val').textContent = document.getElementById('lr-noise').value;
+  const noise = parseInt(document.getElementById('lr-noise').value) / 200;
+  lrPoints=[];
+  const slope=0.5+Math.random()*0.4, intercept=0.1+Math.random()*0.3;
+  for(let i=0;i<35;i++){
+    const x=Math.random()*0.9+0.05;
+    const y=Math.min(.95,Math.max(.05, slope*x+intercept+(Math.random()-.5)*noise*2));
+    lrPoints.push({x,y});
+  }
+  lrDraw();
+}
+
+function lrClear() { lrPoints=[]; lrDraw(); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INIT
+   ══════════════════════════════════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  setTimeout(()=>{
+    gdReset();
+    dtInit();
+    knnInit();
+    kmInit();
+    lrInit();
+  }, 80);
+});
+
+window.addEventListener('resize', () => {
+  gdDraw(gdX);
+  dtDraw();
+  knnDraw();
+  kmDraw();
+  lrDraw();
+});
+</script>
+{% endblock %}
+

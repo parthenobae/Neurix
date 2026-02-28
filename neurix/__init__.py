@@ -39,6 +39,7 @@ def create_app(config_class=Config):
     from neurix.datalab import datalab
     from neurix.calendar import calendar
     from neurix.quiz import quiz
+    from neurix.visualizer import visualizer
 
     app.register_blueprint(users)
     app.register_blueprint(posts)
@@ -48,6 +49,7 @@ def create_app(config_class=Config):
     app.register_blueprint(datalab)
     app.register_blueprint(calendar, url_prefix='/calendar')
     app.register_blueprint(quiz)
+    app.register_blueprint(visualizer)
 
     @app.context_processor
     def inject_leaderboard():
