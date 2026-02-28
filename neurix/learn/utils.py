@@ -115,7 +115,7 @@ except Exception as e:
             lang_cmd[language] + [fname],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=60,
             env=os.environ.copy(),  # pass full environment so subprocess finds packages
         )
 
