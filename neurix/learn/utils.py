@@ -1,4 +1,3 @@
-
 import os
 import subprocess
 import sys
@@ -6,8 +5,8 @@ import tempfile
 from neurix.models import ModuleProgress, LevelUnlock, ChatMessage
 from neurix import db
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 def _unlocked_levels(user_id: int) -> set:
     """Return set of level names the user has unlocked. Beginner always unlocked."""
     rows = LevelUnlock.query.filter_by(user_id=user_id).all()
@@ -30,6 +29,27 @@ def _get_or_create_progress(user_id: int, module_id: str) -> ModuleProgress:
         db.session.add(prog)
         db.session.commit()
     return prog
+
+
+def _get_python_executable() -> str:
+    """
+    Find the correct Python executable that has access to all installed packages.
+    On Render, sys.executable can point to a base Python without site-packages.
+    """
+    # If running inside a virtualenv, VIRTUAL_ENV is set
+    venv = os.environ.get("VIRTUAL_ENV")
+    if venv:
+        candidates = [
+            os.path.join(venv, "bin", "python"),
+            os.path.join(venv, "bin", "python3"),
+        ]
+        for path in candidates:
+            if os.path.isfile(path):
+                print(f"[DEBUG _execute_code] Using virtualenv python: {path}", flush=True)
+                return path
+
+    print(f"[DEBUG _execute_code] Using sys.executable: {sys.executable}", flush=True)
+    return sys.executable
 
 
 def _execute_code(language: str, code: str) -> dict:
@@ -63,14 +83,23 @@ except Exception as e:
 """
         language = "python"
 
+    python_exec = _get_python_executable()
+
     lang_cmd = {
-        "python":     [sys.executable],
+        "python":     [python_exec],
         "javascript": ["node"],
     }
 
     if language not in lang_cmd:
         return {"stdout": "", "stderr": "", "error": f"Unsupported language: {language}"}
 
+    # Debug: log environment info to Render logs
+    print(f"[DEBUG _execute_code] language={language}", flush=True)
+    print(f"[DEBUG _execute_code] sys.executable={sys.executable}", flush=True)
+    print(f"[DEBUG _execute_code] VIRTUAL_ENV={os.environ.get('VIRTUAL_ENV', 'NOT SET')}", flush=True)
+    print(f"[DEBUG _execute_code] PATH={os.environ.get('PATH', 'NOT SET')}", flush=True)
+
+    fname = None
     try:
         with tempfile.NamedTemporaryFile(
             suffix=".py" if language == "python" else ".js",
@@ -80,12 +109,19 @@ except Exception as e:
             f.write(code)
             fname = f.name
 
+        print(f"[DEBUG _execute_code] running: {lang_cmd[language] + [fname]}", flush=True)
+
         result = subprocess.run(
             lang_cmd[language] + [fname],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=10,
+            env=os.environ.copy(),  # pass full environment so subprocess finds packages
         )
+
+        print(f"[DEBUG _execute_code] returncode={result.returncode}", flush=True)
+        print(f"[DEBUG _execute_code] stdout={result.stdout[:200]}", flush=True)
+        print(f"[DEBUG _execute_code] stderr={result.stderr[:200]}", flush=True)
 
         return {
             "stdout": result.stdout,
@@ -94,20 +130,23 @@ except Exception as e:
         }
 
     except subprocess.TimeoutExpired:
-        return {"stdout": "", "stderr": "", "error": "Execution timed out (5s limit)."}
+        print("[DEBUG _execute_code] TIMED OUT", flush=True)
+        return {"stdout": "", "stderr": "", "error": "Execution timed out (10s limit)."}
     except FileNotFoundError as e:
+        print(f"[DEBUG _execute_code] FileNotFoundError: {e}", flush=True)
         return {"stdout": "", "stderr": "", "error": f"Runtime not found: {e}"}
     except Exception as exc:
+        print(f"[DEBUG _execute_code] Exception: {exc}", flush=True)
         return {"stdout": "", "stderr": "", "error": f"Execution error: {exc}"}
     finally:
-        try:
-            os.unlink(fname)
-        except Exception:
-            pass
+        if fname:
+            try:
+                os.unlink(fname)
+            except Exception:
+                pass
 
 
 def _check_solution(output: str, checks: list) -> bool:
     """Return True if any check keyword appears in the output."""
     combined = output.lower()
     return any(str(c).lower() in combined for c in checks)
-
