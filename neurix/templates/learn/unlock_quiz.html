@@ -8,830 +8,201 @@
 
 {% block content %}
 <style>
-/* ── Module Page ─────────────────────────────────── */
-.mod-back {
-  display: inline-flex; align-items: center; gap: .4rem;
-  font-size: .82rem; color: #6b7280; text-decoration: none;
-  margin-bottom: 1.2rem;
-}
-.mod-back:hover { color: #1a2535; text-decoration: none; }
+.quiz-back { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; color:#6b7280; text-decoration:none; margin-bottom:1.2rem; }
+.quiz-back:hover { color:#1a2535; text-decoration:none; }
 
-.mod-header { margin-bottom: 1.5rem; }
-.mod-level-badge {
-  font-size: .72rem; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; padding: .2rem .6rem;
-  border-radius: 4px; margin-bottom: .5rem; display: inline-block;
-}
-.badge-beginner     { background: #eaf6ee; color: #27a35a; }
-.badge-intermediate { background: #fdf0ea; color: #b84c27; }
-.badge-advanced     { background: #eef2fb; color: #2563eb; }
+.quiz-hero { margin-bottom:1.5rem; }
+.quiz-hero h2 { font-family:'DM Serif Display',serif; font-size:1.75rem; color:#1a2535; margin-bottom:.2rem; }
+.quiz-hero p { color:#6b7280; font-size:.9rem; }
 
-.mod-header h2 {
-  font-family: 'DM Serif Display', serif;
-  font-size: 1.75rem; color: #1a2535; margin: 0;
-}
-.mod-header p { color: #6b7280; font-size: .9rem; margin-top: .3rem; }
+.section-card { background:#fff; border:1.5px solid #e5e0d8; border-radius:12px; padding:1.4rem 1.6rem; margin-bottom:1.4rem; box-shadow:0 2px 8px rgba(26,37,53,.05); }
+.section-card h5 { font-family:'DM Serif Display',serif; color:#1a2535; margin-bottom:1rem; }
 
-.mod-completed-banner {
-  background: #eaf6ee; border: 1.5px solid #a7e3be;
-  border-radius: 10px; padding: .75rem 1rem;
-  display: flex; align-items: center; gap: .6rem;
-  margin-bottom: 1.2rem; font-size: .88rem; color: #1a5c37;
+.q-block { margin-bottom:1.2rem; padding-bottom:1.2rem; border-bottom:1px solid #f0ede8; }
+.q-block:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+.q-num { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#9a8f85; margin-bottom:.3rem; }
+.q-text { font-size:.92rem; font-weight:500; color:#1a2535; margin-bottom:.7rem; }
+.q-opts { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+.q-opt {
+  background:#f7f5f0; border:1.5px solid #e5e0d8; border-radius:8px;
+  padding:.55rem .8rem; cursor:pointer; display:flex; align-items:center; gap:.55rem;
+  font-size:.83rem; color:#374151; transition:all .12s;
 }
+.q-opt:hover { border-color:#1a2535; background:#f0ede8; }
+.q-opt.selected { border-color:#1a2535; background:#1a2535; color:#fff; }
+.q-opt.correct  { border-color:#27a35a!important; background:#eaf6ee!important; color:#1a5c37!important; }
+.q-opt.wrong    { border-color:#dc2626!important; background:#fef2f2!important; color:#991b1b!important; }
+.opt-label { width:22px; height:22px; border-radius:50%; border:1.5px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; flex-shrink:0; background:rgba(255,255,255,.15); }
+.q-opt:not(.selected) .opt-label { background:#e5e0d8; border-color:#c8c2ba; color:#6b7280; }
 
-/* Theory card */
-.theory-card {
-  background: #fff; border: 1.5px solid #e5e0d8;
-  border-radius: 12px; padding: 1.6rem 1.8rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(26,37,53,.05);
-}
-.theory-card h5 { font-family: 'DM Serif Display', serif; color: #1a2535; }
-.theory-card pre {
-  background: #1e2b3c; color: #e2e8f0;
-  border-radius: 8px; padding: 1rem 1.2rem;
-  font-size: .82rem; overflow-x: auto;
-}
-.theory-card code { background: #f0ede8; padding: .1em .35em; border-radius: 4px; font-size: .85em; }
-.theory-card pre code { background: none; padding: 0; }
-.formula-block {
-  background: #f7f5f0; border-left: 3px solid #b84c27;
-  padding: .6rem 1rem; border-radius: 0 6px 6px 0;
-  font-family: 'Courier New', monospace; margin: .8rem 0;
-}
-
-/* IDE card */
-.ide-card {
-  background: #fff; border: 1.5px solid #e5e0d8;
-  border-radius: 12px; overflow: hidden;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(26,37,53,.05);
-}
-.ide-topbar {
-  background: #1e2b3c; padding: .6rem 1rem;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.ide-topbar-left { display: flex; align-items: center; gap: .6rem; }
+/* IDE */
+.ide-card { background:#fff; border:1.5px solid #e5e0d8; border-radius:12px; overflow:hidden; }
+.ide-topbar { background:#1e2b3c; padding:.6rem 1rem; display:flex; align-items:center; justify-content:space-between; }
+.ide-topbar-left { display:flex; align-items:center; gap:.6rem; }
 .ide-dot { width:10px; height:10px; border-radius:50%; }
-.ide-lang-pill {
-  font-size: .7rem; font-weight: 700; letter-spacing: .05em;
-  background: #2e3f58; color: #94a3b8;
-  padding: .2rem .6rem; border-radius: 4px;
-}
-.ide-challenge {
-  background: #f7f5f0; border-bottom: 1px solid #e5e0d8;
-  padding: .85rem 1.1rem; font-size: .85rem; color: #4b5563;
-}
-.ide-challenge strong { color: #1a2535; }
+.ide-lang-pill { font-size:.7rem; font-weight:700; letter-spacing:.05em; background:#2e3f58; color:#94a3b8; padding:.2rem .6rem; border-radius:4px; }
+.ide-challenge { background:#f7f5f0; border-bottom:1px solid #e5e0d8; padding:.85rem 1.1rem; font-size:.84rem; color:#4b5563; }
+#quiz-code-editor { width:100%; min-height:160px; background:#1e2b3c; color:#e2e8f0; border:none; outline:none; resize:vertical; font-family:'Courier New',monospace; font-size:.83rem; line-height:1.6; padding:1rem 1.2rem; tab-size:4; }
+.ide-footer { padding:.65rem 1rem; display:flex; align-items:center; gap:.7rem; border-top:1px solid #e5e0d8; background:#faf8f4; }
+.btn-run { background:#27a35a; color:#fff; border:none; padding:.4rem 1rem; border-radius:7px; font-size:.82rem; font-weight:600; cursor:pointer; }
+.btn-run:hover { background:#1e8048; }
+.btn-run:disabled { opacity:.6; cursor:not-allowed; }
+.ide-output { background:#111827; color:#d1fae5; font-family:'Courier New',monospace; font-size:.79rem; padding:.8rem 1.1rem; border-top:1px solid #2e3f58; min-height:50px; white-space:pre-wrap; display:none; }
+.ide-output.visible { display:block; }
+.ide-output.err { color:#fca5a5; }
 
-#code-editor {
-  width: 100%; min-height: 200px;
-  background: #1e2b3c; color: #e2e8f0;
-  border: none; outline: none; resize: vertical;
-  font-family: 'Courier New', monospace;
-  font-size: .84rem; line-height: 1.6;
-  padding: 1rem 1.2rem;
-  tab-size: 4;
-}
-.ide-footer {
-  padding: .75rem 1rem;
-  display: flex; align-items: center; gap: .75rem;
-  border-top: 1px solid #e5e0d8;
-  background: #faf8f4;
-}
-.btn-run {
-  background: #27a35a; color: #fff;
-  border: none; padding: .42rem 1.1rem;
-  border-radius: 7px; font-size: .83rem; font-weight: 600;
-  cursor: pointer; transition: background .15s;
-}
-.btn-run:hover { background: #1e8048; }
-.btn-run:disabled { opacity: .6; cursor: not-allowed; }
-.run-status { font-size: .8rem; flex: 1; }
+/* Submit */
+.quiz-submit-bar { background:#f7f5f0; border:1.5px solid #e5e0d8; border-radius:12px; padding:1.1rem 1.4rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.btn-submit-quiz { background:#b84c27; color:#fff; border:none; padding:.5rem 1.5rem; border-radius:9px; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .15s; }
+.btn-submit-quiz:hover { background:#963d20; }
+.btn-submit-quiz:disabled { opacity:.5; cursor:not-allowed; }
+.quiz-result { border-radius:10px; padding:.85rem 1.1rem; font-size:.88rem; margin-top:1rem; display:none; }
+.quiz-result.visible { display:block; }
+.quiz-result.pass { background:#eaf6ee; border:1.5px solid #a7e3be; color:#1a5c37; }
+.quiz-result.fail { background:#fef2f2; border:1.5px solid #fca5a5; color:#991b1b; }
 
-.ide-output {
-  background: #111827; color: #d1fae5;
-  font-family: 'Courier New', monospace;
-  font-size: .8rem; padding: .85rem 1.2rem;
-  border-top: 1px solid #2e3f58;
-  min-height: 60px; white-space: pre-wrap;
-  display: none;
-}
-.ide-output.stderr { color: #fca5a5; }
-.ide-output.visible { display: block; }
-
-.output-pass {
-  background: #eaf6ee; border: 1px solid #a7e3be;
-  color: #1a5c37; border-radius: 7px;
-  padding: .5rem .9rem; font-size: .82rem;
-  margin: .5rem 1rem; display: none;
-}
-.output-pass.visible { display: block; }
-
-/* MCQ */
-.mcq-card {
-  background: #fff; border: 1.5px solid #e5e0d8;
-  border-radius: 12px; padding: 1.4rem 1.6rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(26,37,53,.05);
-}
-.mcq-card h5 { font-family: 'DM Serif Display', serif; color: #1a2535; margin-bottom: 1rem; }
-.mcq-question { font-size: .93rem; color: #1a2535; margin-bottom: 1rem; font-weight: 500; }
-.mcq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin-bottom: 1rem; }
-.mcq-btn {
-  background: #f7f5f0; border: 1.5px solid #e5e0d8;
-  border-radius: 9px; padding: .65rem .9rem;
-  cursor: pointer; display: flex; align-items: center; gap: .65rem;
-  font-size: .85rem; color: #374151; text-align: left;
-  transition: all .15s; line-height: 1.35;
-}
-.mcq-btn:hover { border-color: #1a2535; background: #f0ede8; }
-.mcq-btn.selected { border-color: #1a2535; background: #1a2535; color: #fff; }
-.mcq-btn.correct  { border-color: #27a35a; background: #eaf6ee; color: #1a5c37; }
-.mcq-btn.wrong    { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
-.mcq-label {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: rgba(255,255,255,.2); border: 1.5px solid currentColor;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .72rem; font-weight: 700; flex-shrink: 0;
-}
-.mcq-btn:not(.selected) .mcq-label { background: #e5e0d8; border-color: #c8c2ba; color: #6b7280; }
-.btn-submit-mcq {
-  background: #b84c27; color: #fff; border: none;
-  padding: .45rem 1.3rem; border-radius: 8px;
-  font-size: .84rem; font-weight: 600; cursor: pointer;
-  transition: background .15s;
-}
-.btn-submit-mcq:hover { background: #963d20; }
-.btn-submit-mcq:disabled { opacity: .5; cursor: not-allowed; }
-.mcq-feedback {
-  margin-top: .75rem; padding: .6rem .9rem;
-  border-radius: 7px; font-size: .83rem; display: none;
-}
-.mcq-feedback.visible { display: block; }
-.mcq-feedback.success { background: #eaf6ee; color: #1a5c37; border: 1px solid #a7e3be; }
-.mcq-feedback.error   { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-
-@media(max-width:576px) { .mcq-grid { grid-template-columns: 1fr; } }
-
-/* ═══════════════════════════════════════════════════
-   CHATBOT — floating panel
-   ═══════════════════════════════════════════════════ */
-
-/* Trigger button — bottom right */
-.chat-trigger {
-  position: fixed; bottom: 28px; right: 28px; z-index: 1000;
-  width: 52px; height: 52px; border-radius: 50%;
-  background: #1a2535; border: none; cursor: pointer;
-  box-shadow: 0 4px 16px rgba(26,37,53,.35);
-  display: flex; align-items: center; justify-content: center;
-  transition: transform .2s, background .2s;
-}
-.chat-trigger:hover { background: #2e3f58; transform: scale(1.08); }
-.chat-trigger svg  { width: 24px; height: 24px; fill: #fff; }
-.chat-badge {
-  position: absolute; top: -3px; right: -3px;
-  background: #b84c27; color: #fff; font-size: .58rem;
-  font-weight: 700; border-radius: 50%; width: 17px; height: 17px;
-  display: flex; align-items: center; justify-content: center;
-  display: none;
-}
-
-/* Panel */
-.chat-panel {
-  position: fixed; bottom: 90px; right: 28px; z-index: 1000;
-  width: 360px; max-height: 520px;
-  background: #fff; border: 1.5px solid #e5e0d8;
-  border-radius: 16px; box-shadow: 0 8px 32px rgba(26,37,53,.18);
-  display: flex; flex-direction: column;
-  transform: scale(.92) translateY(12px);
-  opacity: 0; pointer-events: none;
-  transition: transform .22s ease, opacity .22s ease;
-}
-.chat-panel.open {
-  transform: scale(1) translateY(0);
-  opacity: 1; pointer-events: all;
-}
-
-/* Panel header */
-.chat-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: .75rem 1rem; border-bottom: 1px solid #f0ede8;
-  border-radius: 16px 16px 0 0; background: #1a2535;
-}
-.chat-header-left { display: flex; align-items: center; gap: .55rem; }
-.chat-header-avatar {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: #b84c27; display: flex; align-items: center;
-  justify-content: center; font-size: .9rem;
-}
-.chat-header-info .chat-name {
-  font-size: .83rem; font-weight: 600; color: #fff; line-height: 1;
-}
-.chat-header-info .chat-sub {
-  font-size: .65rem; color: #94a3b8; margin-top: 1px;
-}
-.chat-header-btns { display: flex; align-items: center; gap: .4rem; }
-.chat-hdr-btn {
-  background: none; border: none; cursor: pointer;
-  color: #94a3b8; padding: 3px; border-radius: 4px;
-  font-size: .75rem; transition: color .15s;
-  display: flex; align-items: center;
-}
-.chat-hdr-btn:hover { color: #fff; }
-
-/* Hint notice */
-.chat-hint-bar {
-  background: #fdf0ea; border-bottom: 1px solid #f4d4c0;
-  padding: .4rem .85rem; font-size: .67rem; color: #7a3310;
-  display: flex; align-items: center; gap: .35rem;
-}
-
-/* Messages area */
-.chat-messages {
-  flex: 1; overflow-y: auto; padding: .85rem;
-  display: flex; flex-direction: column; gap: .65rem;
-  max-height: 310px;
-  scrollbar-width: thin; scrollbar-color: #e5e0d8 #fff;
-}
-.chat-messages::-webkit-scrollbar { width: 4px; }
-.chat-messages::-webkit-scrollbar-thumb { background: #e5e0d8; border-radius: 2px; }
-
-/* Individual message bubbles */
-.msg {
-  display: flex; flex-direction: column; max-width: 85%;
-}
-.msg.user   { align-self: flex-end; align-items: flex-end; }
-.msg.assistant { align-self: flex-start; align-items: flex-start; }
-
-.msg-bubble {
-  padding: .55rem .8rem; border-radius: 12px;
-  font-size: .82rem; line-height: 1.55; word-break: break-word;
-}
-.msg.user .msg-bubble {
-  background: #1a2535; color: #fff;
-  border-radius: 12px 12px 3px 12px;
-}
-.msg.assistant .msg-bubble {
-  background: #f7f5f0; color: #1a2535;
-  border-radius: 12px 12px 12px 3px;
-  border: 1px solid #ece9e3;
-}
-.msg-time {
-  font-size: .58rem; color: #b0a89f; margin-top: 2px;
-}
-
-/* Typing indicator */
-.typing-bubble {
-  background: #f7f5f0; border: 1px solid #ece9e3;
-  border-radius: 12px 12px 12px 3px;
-  padding: .55rem .8rem; align-self: flex-start;
-  display: none;
-}
-.typing-bubble.visible { display: flex; align-items: center; gap: 4px; }
-.typing-dot {
-  width: 6px; height: 6px; background: #9a8f85;
-  border-radius: 50%; animation: bounce .9s infinite;
-}
-.typing-dot:nth-child(2) { animation-delay: .15s; }
-.typing-dot:nth-child(3) { animation-delay: .3s; }
-@keyframes bounce {
-  0%,80%,100% { transform: translateY(0); }
-  40%         { transform: translateY(-5px); }
-}
-
-/* Empty state */
-.chat-empty {
-  text-align: center; padding: 1.5rem .5rem;
-  color: #9a8f85; font-size: .8rem; flex: 1;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: .4rem;
-}
-.chat-empty .empty-icon { font-size: 2rem; }
-
-/* Input area */
-.chat-input-area {
-  padding: .7rem; border-top: 1px solid #f0ede8;
-  display: flex; align-items: flex-end; gap: .5rem;
-  background: #faf8f4; border-radius: 0 0 16px 16px;
-}
-.chat-input {
-  flex: 1; border: 1.5px solid #e5e0d8;
-  border-radius: 10px; padding: .5rem .75rem;
-  font-size: .82rem; color: #1a2535; background: #fff;
-  resize: none; outline: none; max-height: 90px;
-  font-family: 'DM Sans', sans-serif; line-height: 1.4;
-  transition: border-color .15s;
-}
-.chat-input:focus { border-color: #1a2535; }
-.chat-send-btn {
-  width: 36px; height: 36px; border-radius: 9px;
-  background: #1a2535; border: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: background .15s;
-}
-.chat-send-btn:hover { background: #2e3f58; }
-.chat-send-btn:disabled { opacity: .5; cursor: not-allowed; }
-.chat-send-btn svg { width: 16px; height: 16px; fill: #fff; }
-
-@media(max-width: 480px) {
-  .chat-panel { width: calc(100vw - 32px); right: 16px; bottom: 80px; }
-  .chat-trigger { right: 16px; bottom: 20px; }
-}
-
+@media(max-width:576px) { .q-opts { grid-template-columns:1fr; } }
 </style>
 
-<!-- Back link -->
-<a href="{{ url_for('learn.dashboard') }}" class="mod-back">
-  ← Back to Learning Path
-</a>
+<a href="{{ url_for('learn.dashboard') }}" class="quiz-back">← Back to Learning Path</a>
 
-<!-- Header -->
-<div class="mod-header">
-  <span class="mod-level-badge badge-{{ mod.level }}">{{ mod.level }}</span>
-  <h2>{{ mod.title }}</h2>
-  <p>{{ mod.description }}</p>
+<div class="quiz-hero">
+  <h2>Unlock {{ level_meta.label }}</h2>
+  <p>Pass <strong>3 of 5 MCQ</strong> and the <strong>code challenge</strong> to unlock this level and earn <strong>+5 points</strong>.</p>
 </div>
 
-{% if progress.completed %}
-<div class="mod-completed-banner">
-  ✅ <strong>Module completed!</strong> You've already earned points for this one.
-</div>
-{% endif %}
-
-<!-- Theory -->
-<div class="theory-card">
-  {{ mod.theory | safe }}
-</div>
-
-<!-- IDE (if module has one) -->
-{% if mod.has_ide %}
-<div class="ide-card" id="ide-section">
-  <div class="ide-topbar">
-    <div class="ide-topbar-left">
-      <div class="ide-dot" style="background:#ff5f57;"></div>
-      <div class="ide-dot" style="background:#febc2e;"></div>
-      <div class="ide-dot" style="background:#28c840;"></div>
+<!-- MCQ Section -->
+<div class="section-card">
+  <h5>Part 1 — Multiple Choice ({{ quiz.mcq | length }} questions)</h5>
+  {% for q in quiz.mcq %}
+  <div class="q-block">
+    <div class="q-num">Question {{ loop.index }}</div>
+    <div class="q-text">{{ q.text }}</div>
+    <div class="q-opts">
+      {% for opt in q.options %}
+      <button class="q-opt" data-qid="{{ q.id }}" data-label="{{ opt.label }}"
+              onclick="selectOpt(this)">
+        <span class="opt-label">{{ opt.label }}</span>
+        {{ opt.text }}
+      </button>
+      {% endfor %}
     </div>
-    <span class="ide-lang-pill">{{ mod.ide_language | upper }}</span>
   </div>
-
-  <div class="ide-challenge">
-    <strong>Challenge:</strong> {{ mod.challenge_description }}
-  </div>
-
-  <textarea id="code-editor" spellcheck="false">{{ mod.ide_starter }}</textarea>
-
-  <div class="ide-footer">
-    <button class="btn-run" id="run-btn" onclick="runCode()">▶ Run Code</button>
-    <span class="run-status" id="run-status"></span>
-  </div>
-
-  <div class="output-pass" id="output-pass"></div>
-  <div class="ide-output" id="ide-output"></div>
+  {% endfor %}
 </div>
-{% endif %}
 
-<!-- MCQ Question -->
-{% if not mod.has_ide %}
-<div class="mcq-card" id="mcq-section">
-  <h5>Knowledge Check</h5>
-  <div class="mcq-question">{{ mod.question.text }}</div>
-  <div class="mcq-grid">
-    {% for opt in mod.question.options %}
-    <button class="mcq-btn" data-label="{{ opt.label }}" onclick="selectMCQ(this)">
-      <span class="mcq-label">{{ opt.label }}</span>
-      {{ opt.text }}
-    </button>
-    {% endfor %}
+<!-- Code Challenge -->
+<div class="section-card">
+  <h5>Part 2 — Code Challenge</h5>
+  <div class="ide-card">
+    <div class="ide-topbar">
+      <div class="ide-topbar-left">
+        <div class="ide-dot" style="background:#ff5f57;"></div>
+        <div class="ide-dot" style="background:#febc2e;"></div>
+        <div class="ide-dot" style="background:#28c840;"></div>
+      </div>
+      <span class="ide-lang-pill">{{ quiz.code.language | upper }}</span>
+    </div>
+    <div class="ide-challenge">{{ quiz.code.description }}</div>
+    <textarea id="quiz-code-editor" spellcheck="false">{{ quiz.code.starter }}</textarea>
+    <div class="ide-footer">
+      <button class="btn-run" id="run-btn" onclick="runQuizCode()">▶ Test Code</button>
+      <span id="run-status" style="font-size:.8rem; color:#6b7280;"></span>
+    </div>
+    <div class="ide-output" id="quiz-output"></div>
   </div>
-  <button class="btn-submit-mcq" id="mcq-submit" onclick="submitMCQ()" disabled>Submit Answer</button>
-  <div class="mcq-feedback" id="mcq-feedback"></div>
 </div>
-{% endif %}
 
-<!-- Show MCQ after IDE is solved -->
-{% if mod.has_ide %}
-<div class="mcq-card" id="mcq-section" style="display:none;">
-  <h5>Knowledge Check</h5>
-  <p style="font-size:.83rem; color:#6b7280; margin-bottom:.8rem;">
-    Answer this question to finalise your completion.
-  </p>
-  <div class="mcq-question">{{ mod.question.text }}</div>
-  <div class="mcq-grid">
-    {% for opt in mod.question.options %}
-    <button class="mcq-btn" data-label="{{ opt.label }}" onclick="selectMCQ(this)">
-      <span class="mcq-label">{{ opt.label }}</span>
-      {{ opt.text }}
-    </button>
-    {% endfor %}
+<!-- Submit bar -->
+<div class="quiz-submit-bar">
+  <div style="font-size:.85rem; color:#6b7280;">
+    Answer all questions and test your code before submitting.
   </div>
-  <button class="btn-submit-mcq" id="mcq-submit" onclick="submitMCQ()" disabled>Submit Answer</button>
-  <div class="mcq-feedback" id="mcq-feedback"></div>
+  <button class="btn-submit-quiz" id="submit-btn" onclick="submitQuiz()">
+    Submit Quiz →
+  </button>
 </div>
-{% endif %}
+<div class="quiz-result" id="quiz-result"></div>
 
 <script>
-const MODULE_ID   = "{{ mod.id }}";
-const HAS_IDE     = {{ 'true' if mod.has_ide else 'false' }};
-const ALREADY_DONE = {{ 'true' if progress.completed else 'false' }};
-let selectedAnswer = null;
-let codePassed = false;
+const LEVEL = "{{ level }}";
+const mcqAnswers = {};
 
-/* ── MCQ ───────────────────────────────────────────── */
-function selectMCQ(btn) {
-  document.querySelectorAll('.mcq-btn').forEach(b => b.classList.remove('selected'));
+function selectOpt(btn) {
+  const qid = btn.dataset.qid;
+  document.querySelectorAll(`.q-opt[data-qid="${qid}"]`).forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  selectedAnswer = btn.dataset.label;
-  document.getElementById('mcq-submit').disabled = false;
+  mcqAnswers[qid] = btn.dataset.label;
 }
 
-async function submitMCQ() {
-  if (!selectedAnswer) return;
-  const btn = document.getElementById('mcq-submit');
-  btn.disabled = true;
-
-  const resp = await fetch(`/learn/module/${MODULE_ID}/complete`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({answer: selectedAnswer})
-  });
-  const data = await resp.json();
-  const fb = document.getElementById('mcq-feedback');
-  fb.className = 'mcq-feedback visible ' + (data.success ? 'success' : 'error');
-  fb.textContent = data.success
-    ? (data.already_done ? '✓ Correct' : `✓ Correct! ${data.message}`)
-    : '✗ ' + data.message;
-
-  if (data.success) {
-    document.querySelectorAll('.mcq-btn').forEach(b => {
-      const correct = b.dataset.label === selectedAnswer && data.success;
-      b.classList.add(correct ? 'correct' : (b.dataset.label === selectedAnswer ? 'wrong' : ''));
-      b.style.pointerEvents = 'none';
-    });
-  } else {
-    btn.disabled = false;
-    setTimeout(() => {
-      document.querySelectorAll('.mcq-btn').forEach(b => b.classList.remove('selected'));
-      selectedAnswer = null;
-    }, 800);
-  }
-}
-
-/* ── IDE ───────────────────────────────────────────── */
-async function runCode() {
-  const code = document.getElementById('code-editor').value;
+async function runQuizCode() {
+  const code = document.getElementById('quiz-code-editor').value;
   const btn  = document.getElementById('run-btn');
+  const out  = document.getElementById('quiz-output');
   const status = document.getElementById('run-status');
-  const outputEl = document.getElementById('ide-output');
-  const passEl   = document.getElementById('output-pass');
 
   btn.disabled = true;
   btn.textContent = '⏳ Running...';
+  out.className = 'ide-output';
   status.textContent = '';
-  outputEl.className = 'ide-output';
-  passEl.className = 'output-pass';
 
   try {
-    const resp = await fetch(`/learn/module/${MODULE_ID}/run`, {
+    const resp = await fetch(`/learn/unlock/${LEVEL}/run_code`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code, language: '{{ mod.ide_language }}'})
+      body: JSON.stringify({code})
     });
     const data = await resp.json();
-
-    const out = (data.stdout || '') + (data.stderr ? '\n⚠ ' + data.stderr : '');
-    outputEl.textContent = out || '(no output)';
-    outputEl.className = 'ide-output visible' + (data.stderr && !data.stdout ? ' stderr' : '');
-
-    if (data.passed && !ALREADY_DONE) {
-      passEl.textContent = `✅ Challenge passed! ${data.points_earned > 0 ? '+' + data.points_earned + ' pts earned!' : 'Already completed.'}`;
-      passEl.className = 'output-pass visible';
-      codePassed = true;
-      // Show MCQ section
-      document.getElementById('mcq-section').style.display = 'block';
-      document.getElementById('mcq-section').scrollIntoView({behavior:'smooth', block:'start'});
-    } else if (data.passed) {
-      passEl.textContent = '✅ Challenge passed!';
-      passEl.className = 'output-pass visible';
-      document.getElementById('mcq-section').style.display = 'block';
-    } else if (!data.error) {
-      status.textContent = '✗ Output does not match expected — check your code.';
-      status.style.color = '#dc2626';
-    }
-
-    if (data.error && !data.stdout) {
-      status.textContent = 'Runtime error — check the output panel.';
-      status.style.color = '#dc2626';
-    }
+    const text = (data.stdout || '') + (data.stderr ? '\n⚠ ' + data.stderr : '');
+    out.textContent = text || '(no output)';
+    out.className = 'ide-output visible' + (data.stderr && !data.stdout ? ' err' : '');
+    status.textContent = data.error ? '✗ Error in code' : '✓ Code ran successfully';
+    status.style.color = data.error ? '#dc2626' : '#27a35a';
   } catch(e) {
-    status.textContent = 'Network error — try again.';
+    status.textContent = 'Network error';
     status.style.color = '#dc2626';
   }
 
   btn.disabled = false;
-  btn.textContent = '▶ Run Code';
+  btn.textContent = '▶ Test Code';
 }
 
-// Tab key in textarea
-document.getElementById('code-editor')?.addEventListener('keydown', e => {
+async function submitQuiz() {
+  const code = document.getElementById('quiz-code-editor').value;
+  const btn  = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  const resp = await fetch(`/learn/unlock/${LEVEL}/submit`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({mcq_answers: mcqAnswers, code})
+  });
+  const data = await resp.json();
+
+  const resultEl = document.getElementById('quiz-result');
+  resultEl.className = 'quiz-result visible ' + (data.passed ? 'pass' : 'fail');
+  resultEl.innerHTML = data.passed
+    ? `🎉 <strong>${data.message}</strong><br><small>MCQ: ${data.mcq_score}/5 &nbsp;|&nbsp; Code: ✓</small>`
+    : `✗ <strong>Not quite.</strong> ${data.message}<br><small>Review the Beginner modules and try again.</small>`;
+
+  resultEl.scrollIntoView({behavior:'smooth'});
+
+  if (data.passed) {
+    setTimeout(() => { window.location.href = '/learn'; }, 2500);
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Submit Quiz →';
+  }
+}
+
+document.getElementById('quiz-code-editor').addEventListener('keydown', e => {
   if (e.key === 'Tab') {
     e.preventDefault();
-    const ta = e.target;
-    const start = ta.selectionStart;
-    ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(ta.selectionEnd);
-    ta.selectionStart = ta.selectionEnd = start + 4;
+    const ta = e.target, s = ta.selectionStart;
+    ta.value = ta.value.substring(0, s) + '    ' + ta.value.substring(ta.selectionEnd);
+    ta.selectionStart = ta.selectionEnd = s + 4;
   }
 });
-
-// If already done, show MCQ section immediately
-if (ALREADY_DONE && HAS_IDE) {
-  const mcq = document.getElementById('mcq-section');
-  if (mcq) mcq.style.display = 'block';
-}
 </script>
-
-<!-- ═══════════════════════════════════════════════
-     CHATBOT — floating trigger + panel
-     ═══════════════════════════════════════════════ -->
-
-<!-- Trigger button -->
-<button class="chat-trigger" id="chat-trigger" onclick="toggleChat()" title="Ask your tutor">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
-  </svg>
-  <span class="chat-badge" id="chat-badge"></span>
-</button>
-
-<!-- Chat panel -->
-<div class="chat-panel" id="chat-panel">
-
-  <!-- Header -->
-  <div class="chat-header">
-    <div class="chat-header-left">
-      <div class="chat-header-avatar">🤖</div>
-      <div class="chat-header-info">
-        <div class="chat-name">Neurix Tutor</div>
-        <div class="chat-sub">{{ mod.title }}</div>
-      </div>
-    </div>
-    <div class="chat-header-btns">
-      <button class="chat-hdr-btn" onclick="clearHistory()" title="Clear history">
-        <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;">
-          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-        </svg>
-      </button>
-      <button class="chat-hdr-btn" onclick="toggleChat()" title="Close">
-        <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Hint notice -->
-  <div class="chat-hint-bar">
-    💡 I give hints only — I won't reveal quiz or challenge answers directly.
-  </div>
-
-  <!-- Messages -->
-  <div class="chat-messages" id="chat-messages">
-    <div class="chat-empty" id="chat-empty">
-      <div class="empty-icon">💬</div>
-      <div>Ask me anything about this module.</div>
-      <div style="font-size:.7rem;color:#b0a89f;">I'll guide you with hints, not answers.</div>
-    </div>
-  </div>
-
-  <!-- Typing indicator -->
-  <div class="typing-bubble" id="typing-bubble">
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-  </div>
-
-  <!-- Input area -->
-  <div class="chat-input-area">
-    <textarea
-      class="chat-input" id="chat-input"
-      rows="1" placeholder="Ask a question about this module..."
-      onkeydown="chatKeydown(event)"
-      oninput="autoResize(this)"
-    ></textarea>
-    <button class="chat-send-btn" id="chat-send" onclick="sendMessage()" title="Send">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-      </svg>
-    </button>
-  </div>
-
-</div>
-
-<script>
-/* ═══════════════════════════════════════════════════
-   CHATBOT JS
-   ═══════════════════════════════════════════════════ */
-const CHAT_MODULE_ID = "{{ mod.id }}";
-let chatOpen = false;
-let isSending = false;
-
-// ── Open / close ─────────────────────────────────
-function toggleChat() {
-  chatOpen = !chatOpen;
-  const panel = document.getElementById('chat-panel');
-  panel.classList.toggle('open', chatOpen);
-  if (chatOpen) {
-    // Clear unread badge
-    const badge = document.getElementById('chat-badge');
-    badge.style.display = 'none';
-    // Load history on first open
-    if (!window._chatHistoryLoaded) {
-      loadHistory();
-      window._chatHistoryLoaded = true;
-    }
-    // Focus input
-    setTimeout(() => document.getElementById('chat-input').focus(), 220);
-  }
-}
-
-// ── Load history from server ─────────────────────
-async function loadHistory() {
-  try {
-    const resp = await fetch(`/learn/module/${CHAT_MODULE_ID}/chat/history`);
-    const data = await resp.json();
-    if (data.messages && data.messages.length > 0) {
-      document.getElementById('chat-empty').style.display = 'none';
-      data.messages.forEach(m => appendBubble(m.role, m.content, m.timestamp, false));
-      scrollToBottom();
-    }
-  } catch(e) {
-    console.warn('Could not load chat history:', e);
-  }
-}
-
-// ── Append a message bubble ──────────────────────
-function appendBubble(role, content, time, scroll=true) {
-  // Hide empty state
-  document.getElementById('chat-empty').style.display = 'none';
-
-  const container = document.getElementById('chat-messages');
-  const msg = document.createElement('div');
-  msg.className = `msg ${role}`;
-
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.textContent = content;
-
-  const ts = document.createElement('div');
-  ts.className = 'msg-time';
-  ts.textContent = time || new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-
-  msg.appendChild(bubble);
-  msg.appendChild(ts);
-  container.appendChild(msg);
-
-  if (scroll) scrollToBottom();
-  return bubble;   // return bubble so we can stream into it
-}
-
-// ── Create an empty assistant bubble to stream into ──
-function createStreamBubble() {
-  document.getElementById('chat-empty').style.display = 'none';
-  const container = document.getElementById('chat-messages');
-
-  const msg = document.createElement('div');
-  msg.className = 'msg assistant';
-
-  const bubble = document.createElement('div');
-  bubble.className = 'msg-bubble';
-  bubble.textContent = '';
-
-  const ts = document.createElement('div');
-  ts.className = 'msg-time';
-  ts.textContent = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-
-  msg.appendChild(bubble);
-  msg.appendChild(ts);
-  container.appendChild(msg);
-  scrollToBottom();
-  return bubble;
-}
-
-function scrollToBottom() {
-  const el = document.getElementById('chat-messages');
-  el.scrollTop = el.scrollHeight;
-}
-
-// ── Send a message ───────────────────────────────
-async function sendMessage() {
-  if (isSending) return;
-  const input = document.getElementById('chat-input');
-  const text = input.value.trim();
-  if (!text) return;
-
-  isSending = true;
-  input.value = '';
-  input.style.height = 'auto';
-  document.getElementById('chat-send').disabled = true;
-
-  // Append user bubble immediately
-  appendBubble('user', text, null, true);
-
-  // Show typing indicator
-  const typingEl = document.getElementById('typing-bubble');
-  typingEl.classList.add('visible');
-  scrollToBottom();
-
-  // Stream assistant response
-  const streamBubble = createStreamBubble();
-  streamBubble.textContent = '';   // will fill token by token
-  let buffer = '';
-
-  try {
-    const resp = await fetch(`/learn/module/${CHAT_MODULE_ID}/chat/message`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: text}),
-    });
-
-    typingEl.classList.remove('visible');
-
-    if (!resp.ok) {
-      streamBubble.textContent = 'Something went wrong. Please try again.';
-      isSending = false;
-      document.getElementById('chat-send').disabled = false;
-      return;
-    }
-
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const {done, value} = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, {stream: true});
-      const lines  = chunk.split('\n');
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const payload = line.slice(6).trim();
-        if (payload === '[DONE]') break;
-        try {
-          const parsed = JSON.parse(payload);
-          if (parsed.token) {
-            buffer += parsed.token;
-            streamBubble.textContent = buffer;
-            scrollToBottom();
-          }
-          if (parsed.error) {
-            streamBubble.textContent = 'Error: ' + parsed.error;
-          }
-        } catch(e) { /* partial chunk, ignore */ }
-      }
-    }
-
-    // Show unread badge if panel is closed
-    if (!chatOpen) {
-      const badge = document.getElementById('chat-badge');
-      badge.style.display = 'flex';
-      badge.textContent = '1';
-    }
-
-  } catch(e) {
-    typingEl.classList.remove('visible');
-    streamBubble.textContent = 'Network error — please try again.';
-  }
-
-  isSending = false;
-  document.getElementById('chat-send').disabled = false;
-  input.focus();
-}
-
-// ── Clear history ────────────────────────────────
-async function clearHistory() {
-  if (!confirm('Clear all chat history for this module?')) return;
-  await fetch(`/learn/module/${CHAT_MODULE_ID}/chat/clear`, {method: 'POST'});
-  const container = document.getElementById('chat-messages');
-  // Remove all message bubbles
-  Array.from(container.querySelectorAll('.msg')).forEach(el => el.remove());
-  document.getElementById('chat-empty').style.display = 'flex';
-  window._chatHistoryLoaded = false;
-}
-
-// ── Keyboard shortcuts ───────────────────────────
-function chatKeydown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
-}
-
-// ── Auto-resize textarea ─────────────────────────
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 90) + 'px';
-}
-</script>
-
 {% endblock content %}
